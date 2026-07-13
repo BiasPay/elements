@@ -1,0 +1,202 @@
+/*
+ * Bias Elements (Svelte) global stylesheet.
+ *
+ * Only utility layers are pulled from Tailwind (no preflight/reset) so the
+ * package never mutates a host page's base styles. Component-specific rules
+ * live in each component's scoped <style>; the shared, cross-component design
+ * (theme variables, the `.bias-field` frame, form layout) lives here keyed on
+ * the global `bias-*` class names the components apply.
+ *
+ * This sheet is injected into the host page at import time. Every Tailwind
+ * utility is emitted under the `bias:` prefix (`bias:flex`, `bias:lg:grid`, ...)
+ * so our generic utilities can never collide with — or override — the host
+ * page's own Tailwind utilities on shared elements, regardless of how the host
+ * configures its layers.
+ */
+@layer bias-theme, bias, bias-utilities;
+
+@import "tailwindcss/theme.css" layer(bias-theme) prefix(bias);
+@import "tailwindcss/utilities.css" layer(bias-utilities) prefix(bias);
+
+@theme {
+    --text-xs: calc(var(--bias-font-size) * 0.75);
+    --text-sm: calc(var(--bias-font-size) * 0.875);
+    --text-base: var(--bias-font-size);
+    --text-lg: calc(var(--bias-font-size) * 1.125);
+    --text-xl: calc(var(--bias-font-size) * 1.25);
+    --text-2xl: calc(var(--bias-font-size) * 1.5);
+    --text-3xl: calc(var(--bias-font-size) * 1.875);
+    --text-4xl: calc(var(--bias-font-size) * 2.25);
+    --text-5xl: calc(var(--bias-font-size) * 3);
+    --text-6xl: calc(var(--bias-font-size) * 3.75);
+    --text-7xl: calc(var(--bias-font-size) * 4.5);
+    --text-8xl: calc(var(--bias-font-size) * 6);
+    --text-9xl: calc(var(--bias-font-size) * 8);
+}
+
+/*
+ * Explicit source so consumers whose Vite root isn't this package (e.g. the
+ * dev app, whose root is `dev/`) still get every `bias-*` component's
+ * Tailwind utility classes scanned — v4's automatic detection only walks
+ * outward from the *importing* Vite root, not from this file's location.
+ */
+@source "./components";
+
+bias-provider,
+bias-payment-element,
+bias-card-element,
+bias-us-bank-account-element,
+bias-address-element,
+bias-contact-element,
+bias-submit-button {
+    display: contents;
+}
+
+bias-provider[data-bias-loading] {
+    display: none;
+}
+
+@property --slide-progress {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 1;
+}
+
+@layer bias {
+    :root {
+        --bias-color-primary: #0063d6;
+        --bias-color-background: #ffffff;
+        --bias-color-input: #ffffff;
+        --bias-color-success: #16a34a;
+        --bias-color-error: #e53e3e;
+        --bias-color-foreground: rgba(0 0 0 / 0.85);
+        --bias-color-muted-foreground: rgba(0 0 0 / 0.56);
+        --bias-color-border: #e0e0e0;
+        --bias-shadow: 0px 1px 1px rgba(0 0 0 / 0.02), 0px 3px 6px rgba(0 0 0 / 0.02);
+        --bias-color-placeholder: rgba(0 0 0 / 0.5);
+        --bias-border-radius: 8px;
+        --bias-font-family: system-ui, sans-serif;
+        --bias-font-size: 16px;
+        --bias-gap: 1rem;
+        --bias-input-padding-inline: 0.65rem;
+        --bias-input-padding-block: 0.6875rem;
+
+        --ease-out-quad: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        --ease-out-cubic: cubic-bezier(0.215, 0.61, 0.355, 1);
+        --ease-cubic-in-out: cubic-bezier(0.645, 0.045, 0.355, 1);
+        --ease-in-out-smooth: cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    :is([class^="bias-"], [class*=" bias-"]) {
+        font-family: var(--bias-font-family);
+        box-sizing: border-box;
+
+        & * {
+            font-family: var(--bias-font-family);
+            box-sizing: border-box;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            &,
+            & *,
+            &::before,
+            &::after,
+            & *::before,
+            & *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    }
+
+    .bias-field {
+        display: grid;
+        position: relative;
+        border: 1px solid var(--bias-color-border);
+        border-radius: var(--bias-border-radius);
+        background-color: var(--bias-color-input);
+        container-type: inline-size;
+        min-height: calc(1lh + var(--bias-input-padding-block) * 2);
+        transition:
+            border-color 265ms,
+            background-color 200ms,
+            opacity 200ms;
+        box-shadow: var(--bias-shadow);
+
+        /* Own layer for rings so they animate independently instead of fighting over z-index. */
+        &::after {
+            content: "";
+            position: absolute;
+            inset: -0.85px;
+            border-radius: inherit;
+            z-index: 2;
+            pointer-events: none;
+            opacity: 0;
+            transition:
+                opacity 225ms,
+                box-shadow 225ms;
+            --ring-offset: calc(var(--bias-focus-ring-offset, 0px) * -1);
+            box-shadow:
+                inset 0 0 0.25px var(--ring-offset) var(--ring-color),
+                inset 0 0 0.25px 1px var(--border-color, transparent),
+                0 0 0.25px calc(var(--bias-focus-ring-width, 3px) - var(--ring-offset))
+                    var(--ring-color);
+        }
+
+        &.bias-fieldFocus,
+        &:focus-within {
+            --border-color: var(--bias-focus-ring-color, var(--bias-color-primary));
+
+            &:not(.bias-fieldError)::after {
+                opacity: 1;
+                --ring-color: var(
+                    --bias-focus-ring-color,
+                    color-mix(in srgb, var(--bias-color-primary) 30%, transparent)
+                );
+            }
+        }
+
+        &.bias-fieldError {
+            z-index: 1;
+            border-color: var(--bias-color-error);
+            box-shadow:
+                var(--bias-shadow),
+                inset 0 0 0 0.5px var(--bias-color-error),
+                0 0 0 0.5px var(--bias-color-error);
+        }
+
+        &.bias-fieldDisabled {
+            cursor: default;
+            opacity: 1;
+            background-color: #f2f2f2;
+            border-color: color-mix(in srgb, var(--bias-color-border), transparent 40%);
+            box-shadow: var(--bias-shadow);
+        }
+    }
+
+    /* Native inputs that sit inside a `.bias-field` frame. */
+    .bias-hostField {
+        appearance: none;
+        background: none;
+        border: none;
+        outline: none;
+        width: 100%;
+        height: 100%;
+        color: var(--bias-color-foreground);
+        /*margin-block: -1px;*/
+        padding-inline: var(--bias-input-padding-inline);
+        padding-block: var(--bias-input-padding-block);
+        font-size: var(--bias-font-size);
+        font-family: var(--bias-font-family);
+        /*mask-image: linear-gradient(
+            to right,
+            black calc(100% - 38px),
+            transparent calc(100% - 26px)
+        );*/
+
+        &:disabled {
+            cursor: default;
+        }
+    }
+}

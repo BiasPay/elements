@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.venv/
+target/
+.mirror-pack/
+*.tgz
+*.crate

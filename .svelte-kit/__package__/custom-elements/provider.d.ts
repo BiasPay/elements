@@ -1,0 +1,60 @@
+import type { CheckoutSession } from "@biaspay/sdk";
+import { type Appearance, type BiasFieldName, type BiasFieldState, type BiasFieldValidator, type BiasFieldValueMap, type ElementsController, type PaymentMethod } from "../core";
+export type BiasFieldBinding<K extends BiasFieldName> = {
+    readonly state: BiasFieldState<BiasFieldValueMap[K]>;
+    setValue(value: BiasFieldValueMap[K]): void;
+    setValidator(validator: BiasFieldValidator<K>): () => void;
+    validate(): void;
+    onFocus(): void;
+    onBlur(): void;
+};
+declare const HTMLElementBase: {
+    new (): HTMLElement;
+    prototype: HTMLElement;
+};
+export declare class BiasProviderElement extends HTMLElementBase {
+    static readonly observedAttributes: string[];
+    private core;
+    private ownsController;
+    private unsubscribe;
+    private appearanceListeners;
+    private appliedVariables;
+    private lastStatus;
+    private lastError;
+    private _initialCheckoutSession;
+    private _appearance;
+    private _onComplete;
+    get controller(): ElementsController | undefined;
+    set controller(value: ElementsController | undefined);
+    get clientSecret(): string;
+    set clientSecret(value: string);
+    get initialCheckoutSession(): CheckoutSession | undefined;
+    set initialCheckoutSession(value: CheckoutSession | undefined);
+    get appearance(): Appearance | undefined;
+    set appearance(value: Appearance | undefined);
+    get onComplete(): (() => void) | undefined;
+    set onComplete(value: (() => void) | undefined);
+    get sessionState(): import("../core").SessionState;
+    get paymentMethod(): PaymentMethod | undefined;
+    get status(): import("../core").SubmissionStatus;
+    get canSubmit(): boolean;
+    get submissionError(): import("../core").BiasElementsError | null;
+    connectedCallback(): void;
+    disconnectedCallback(): void;
+    attributeChangedCallback(): void;
+    submit(): void;
+    refreshSession(): void;
+    setPaymentMethod(method: PaymentMethod): void;
+    getField<K extends BiasFieldName>(name: K, options?: {
+        validate?: BiasFieldValidator<K>;
+    }): BiasFieldBinding<K>;
+    private config;
+    private attachController;
+    private detachController;
+    private updateOwnedConfig;
+    private handleStateChange;
+    private applyAppearance;
+    private requireController;
+    private setStringAttribute;
+}
+export {};

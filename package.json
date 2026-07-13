@@ -1,0 +1,90 @@
+{
+    "name": "@biaspay/elements",
+    "version": "0.0.1",
+    "private": false,
+    "description": "Framework-neutral Bias payment custom elements",
+    "keywords": [
+        "payments",
+        "custom-elements",
+        "web-components"
+    ],
+    "homepage": "https://biaspay.com",
+    "bugs": {
+        "url": "https://github.com/BiasPay/elements/issues"
+    },
+    "license": "MIT",
+    "author": "Bias",
+    "contributors": [],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/BiasPay/elements.git"
+    },
+    "files": [
+        "dist"
+    ],
+    "type": "module",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        }
+    },
+    "sideEffects": [
+        "**/*.css",
+        "./dist/index.js",
+        "./dist/development.js"
+    ],
+    "scripts": {
+        "dev": "vite serve --config dev/vite.config.ts dev --port 3010",
+        "build": "bun run build:production && bun run build:development",
+        "build:production": "rm -rf dist && vite build && bun scripts/assert-artifact.ts production dist/*.js && bun run build:types",
+        "build:development": "vite build --mode development && bun scripts/assert-artifact.ts development dist/development.js dist/development/*.js",
+        "build:types": "svelte-package -o dist-types && rsync -a --include='/index.d.ts' --include='/custom-elements/' --include='/custom-elements/provider.d.ts' --include='/custom-elements/public-types.d.ts' --include='/core/' --include='/core/**/' --exclude='*.test.d.ts' --exclude='/core/endpoints.d.ts' --include='/core/*.d.ts' --include='/core/**/*.d.ts' --exclude='*' dist-types/ dist/ && rm -rf dist-types",
+        "check": "svelte-check --tsconfig ./tsconfig.json",
+        "test": "bun run test:core && bun run test:web",
+        "test:core": "vitest run --config vitest.core.config.ts",
+        "test:web": "vitest run",
+        "test:watch": "vitest",
+        "lint": "concurrently \"bunx oxlint .\" \"bun run check\"",
+        "prepack": "bun run build:production",
+        "format": "bun oxfmt --write .",
+        "lint:fix": "bun oxlint --fix . && bun format"
+    },
+    "dependencies": {
+        "@biaspay/sdk": "1.0.1",
+        "@steeze-ui/heroicons": "^2.4.2",
+        "@steeze-ui/svelte-icon": "^1.6.2",
+        "bezier-easing": "^3.0.1",
+        "libphonenumber-js": "^1.12.41",
+        "tailwind-merge": "^3.6.0"
+    },
+    "devDependencies": {
+        "@sveltejs/package": "^2.5.4",
+        "@sveltejs/vite-plugin-svelte": "^6.2.1",
+        "@tailwindcss/vite": "^4.3.2",
+        "@types/node": "^25.9.3",
+        "@vitest/browser": "^4.1.8",
+        "@vitest/browser-playwright": "^4.1.8",
+        "concurrently": "^10.0.3",
+        "jsdom": "^29.1.1",
+        "playwright": "^1.58.2",
+        "oxfmt": "^0.54.0",
+        "oxlint": "^1.59.0",
+        "svelte": "^5.56.4",
+        "svelte-check": "^4.4.2",
+        "svelte-tweakpane-ui": "^1.5.18",
+        "tailwindcss": "^4.3.2",
+        "typescript": "^6.0.3",
+        "vite": "^7.3.5",
+        "vite-plugin-css-injected-by-js": "^5.0.1",
+        "vitest": "^4.1.8"
+    },
+    "engines": {
+        "bun": ">=1.3.11",
+        "node": ">=18"
+    }
+}
