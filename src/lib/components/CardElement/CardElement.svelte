@@ -43,8 +43,8 @@
 
 <div class="bias-form 🔒 bias:flex bias:flex-col bias:gap-(--bias-gap)" use:appearanceAction={appearance}>
     <FieldGroup label="Card number" fieldType="cardNumber" {appearance} error={fs.cardNumber.error}>
-        {#snippet input(placeholder, id)}
-            <CardNumberInput {id} {placeholder} />
+        {#snippet input(placeholder, id, _ariaDescribedby, floatingLabelShrunk)}
+            <CardNumberInput {id} {placeholder} {floatingLabelShrunk} />
         {/snippet}
     </FieldGroup>
 
@@ -55,8 +55,8 @@
             {appearance}
             error={fs.cardExpiry.error}
         >
-            {#snippet input(placeholder, id)}
-                <CardExpiryInput {id} {placeholder} />
+            {#snippet input(placeholder, id, _ariaDescribedby, floatingLabelShrunk)}
+                <CardExpiryInput {id} {placeholder} {floatingLabelShrunk} />
             {/snippet}
         </FieldGroup>
 
@@ -66,8 +66,8 @@
             {appearance}
             error={fs.cardCvc.error}
         >
-            {#snippet input(placeholder, id)}
-                <CardCvcInput {id} {placeholder} />
+            {#snippet input(placeholder, id, _ariaDescribedby, floatingLabelShrunk)}
+                <CardCvcInput {id} {placeholder} {floatingLabelShrunk} />
             {/snippet}
         </FieldGroup>
     </Row>
@@ -106,5 +106,31 @@
                 </Row>
             {/snippet}
         </SameAsShippingToggle>
+    {:else if !ctx.snapshot.collectsAddress}
+        <Row>
+            <FieldGroup
+                label="Country"
+                fieldType="country"
+                {appearance}
+                error={fs.country.error}
+            >
+                {#snippet input(placeholder, id)}
+                    <CountrySelect {id} />
+                {/snippet}
+            </FieldGroup>
+
+            {#if collectsPostalCode}
+                <FieldGroup
+                    label={metadata.postalCode.label}
+                    fieldType="postalCode"
+                    {appearance}
+                    error={fs.postalCode.error}
+                >
+                    {#snippet input(placeholder, id)}
+                        <PostalCodeInput {id} {placeholder} />
+                    {/snippet}
+                </FieldGroup>
+            {/if}
+        </Row>
     {/if}
 </div>

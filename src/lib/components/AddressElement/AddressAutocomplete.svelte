@@ -1,11 +1,12 @@
 <script lang="ts">
     import { onDestroy } from "svelte";
     import { MagnifyingGlass, XMark } from "@steeze-ui/heroicons";
-    import type { AddressAutocompleteSuggestion } from "@biaspay/sdk";
+    import type { AddressAutocompleteSuggestion } from "~/core/api-types";
     import { getAddressScope, getBiasContext } from "~/context.svelte";
     import { cn } from "~/utils/classes";
     import Icon from "../Icon/Icon.svelte";
     import FieldShell from "../Field/FieldShell.svelte";
+    import { isExternalAddressFill, scopedAutocomplete } from "./autocomplete";
 
     const DEBOUNCE_MS = 250;
     const MIN_INPUT_LENGTH = 3;
@@ -35,12 +36,14 @@
     let panelEl = $state<HTMLDivElement>();
 
     let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+    let verificationTimer: ReturnType<typeof setTimeout> | undefined;
     let abortController: AbortController | undefined;
     /** Guards against a stale response landing after a newer request started. */
     let requestToken = 0;
 
     const disabled = $derived(ctx.submitDisabled);
     const field = $derived(ctx.getField(scope, "addressLine1"));
+    const browserAutocomplete = $derived(scopedAutocomplete(scope, "address-line1"));
     const showListbox = $derived(open && suggestions.length > 0);
     const activeId = $derived(
         activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined,
@@ -58,6 +61,7 @@
 
     onDestroy(() => {
         clearTimeout(debounceTimer);
+        clearTimeout(verificationTimer);
         abortController?.abort();
     });
 
@@ -66,6 +70,15 @@
         activeIndex = -1;
         suggestions = [];
         query = "";
+    }
+
+    function cancelSearch() {
+        clearTimeout(debounceTimer);
+        debounceTimer = undefined;
+        abortController?.abort();
+        abortController = undefined;
+        requestToken++;
+        close();
     }
 
     function scheduleSearch(input: string) {
@@ -129,14 +142,26 @@
             ctx.getField(scope, "country").setValue(components.country.code);
         }
 
-        close();
+        cancelSearch();
         onreveal?.();
+        void ctx.verifyAddress(scope);
     }
 
     function handleInput(e: Event) {
         const value = (e.currentTarget as HTMLInputElement).value;
         field.setState({ error: null });
         field.setValue(value);
+
+        if (isExternalAddressFill(e)) {
+            cancelSearch();
+            onreveal?.();
+            clearTimeout(verificationTimer);
+            // Autofill providers commonly populate all address fields in the
+            // same task. Verify after those field events have landed.
+            verificationTimer = setTimeout(() => void ctx.verifyAddress(scope), 0);
+            return;
+        }
+
         scheduleSearch(value);
     }
 
@@ -146,13 +171,10 @@
 
     function handleBlur() {
         field.setState({ focused: false });
-        // Let a pointerdown selection on an option land before we close & validate.
-        setTimeout(() => {
-            close();
-            field.validate();
-            if (!field.value.trim()) return;
-            onreveal?.();
-        }, 150);
+        cancelSearch();
+        field.validate();
+        if (!field.value.trim()) return;
+        onreveal?.();
     }
 
     function handleKeydown(e: KeyboardEvent) {
@@ -197,7 +219,7 @@
         class="bias-hostField"
         style="anchor-name:{anchorName}"
         type="text"
-        autocomplete="off"
+        autocomplete={browserAutocomplete}
         role="combobox"
         aria-autocomplete="list"
         aria-expanded={showListbox ? "true" : "false"}
@@ -214,7 +236,7 @@
     />
     {#if !open}
         <span
-            class="🔒 bias:absolute bias:top-1/2 bias:right-[0.675rem] bias:block bias:size-3.5 bias:-translate-y-1/2 bias:pointer-events-none bias:text-(--bias-color-placeholder)"
+            class="🔒 bias:absolute bias:top-1/2 bias:right-[0.675rem] bias:block bias:size-3.5 bias:-translate-y-1/2 bias:pointer-events-none bias:text-placeholder"
         >
             <Icon src={MagnifyingGlass} theme="micro" class="🔒 bias:size-full" />
         </span>
@@ -222,21 +244,21 @@
     <div
         bind:this={panelEl}
         id="{listboxId}-panel"
-        class="🔒 panel bias:mt-1 bias:-mx-1 bias:mb-0 bias:p-1 bias:border bias:border-(--bias-color-border) bias:rounded-(--bias-border-radius) bias:bg-(--bias-color-input)"
+        class="🔒 panel bias:mt-1 bias:-mx-1 bias:mb-0 bias:p-1 bias:border bias:border-border bias:rounded-bias bias:bg-input"
         popover="manual"
         style="position-anchor:{anchorName}"
     >
         <div class="🔒 bias:flex bias:items-center bias:justify-between bias:gap-2 bias:pt-0.5 bias:px-1.5 bias:pb-0.75">
             <span
-                class="🔒 bias:text-[11px] bias:font-semibold bias:tracking-[0.06em] bias:uppercase bias:text-(--bias-color-muted-foreground)"
+                class="🔒 bias:text-[11px] bias:font-semibold bias:tracking-[0.06em] bias:uppercase bias:text-muted-foreground"
                 >Suggestions</span
             >
             <button
                 type="button"
-                class="🔒 bias:inline-flex bias:items-center bias:justify-center bias:m-0 bias:p-0.5 bias:border-none bias:rounded-[calc(var(--bias-border-radius)-4px)] bias:bg-transparent bias:text-(--bias-color-muted-foreground) bias:cursor-pointer bias:font-[inherit] bias:hover:text-(--bias-color-foreground)"
+                class="🔒 bias:inline-flex bias:items-center bias:justify-center bias:m-0 bias:p-0.5 bias:border-none bias:rounded-[calc(var(--bias-border-radius)-4px)] bias:bg-transparent bias:text-muted-foreground bias:cursor-pointer bias:font-[inherit] bias:hover:text-foreground"
                 aria-label="Close suggestions"
                 onmousedown={(e) => e.preventDefault()}
-                onclick={close}
+                onclick={cancelSearch}
             >
                 <Icon src={XMark} theme="mini" class="🔒 bias:size-4" />
             </button>
@@ -261,12 +283,12 @@
                     onmousedown={(e) => e.preventDefault()}
                     onclick={() => selectSuggestion(suggestion)}
                 >
-                    <span class="🔒 bias:text-(length:--bias-font-size) bias:text-(--bias-color-foreground)">
+                    <span class="🔒 bias:text-base bias:text-foreground">
                         {#if parts}{parts.before}<strong class="🔒 bias:font-semibold"
                                 >{parts.match}</strong
                             >{parts.after}{:else}{suggestion.label}{/if}
                     </span>
-                    <span class="🔒 bias:text-[calc(var(--bias-font-size)*0.85)] bias:text-(--bias-color-muted-foreground)"
+                    <span class="🔒 bias:text-[calc(var(--bias-font-size)*0.85)] bias:text-muted-foreground"
                         >{suggestion.secondary_label}</span
                     >
                 </li>

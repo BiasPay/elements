@@ -15,6 +15,7 @@
         disabled?: boolean;
         error?: boolean;
         autocomplete?: FullAutoFill;
+        ariaLabel?: string;
         /** A non-selectable prompt shown while no value is chosen. */
         placeholder?: string;
         onchange: (value: string) => void;
@@ -28,6 +29,7 @@
         disabled,
         error,
         autocomplete,
+        ariaLabel,
         placeholder,
         onchange,
     }: Props = $props();
@@ -40,6 +42,7 @@
         class="bias-hostField bias-select 🔒 bias:col-start-1 bias:row-start-1 bias:cursor-pointer"
         {disabled}
         {autocomplete}
+        aria-label={ariaLabel}
         aria-invalid={error ? "true" : undefined}
         onchange={(e) => onchange((e.currentTarget as HTMLSelectElement).value)}
     >
@@ -52,7 +55,7 @@
     </select>
     <span class="bias-selectChevron 🔒 bias:col-start-1 bias:row-start-1 bias:justify-self-end bias:self-center bias:mr-[0.675rem]">
         <Icon
-            class="bias-hostFieldAffordance 🔒 bias:block bias:size-4.5 bias:shrink-0 bias:pointer-events-none bias:text-(--bias-color-placeholder)"
+            class="bias-hostFieldAffordance 🔒 bias:block bias:size-4.5 bias:shrink-0 bias:pointer-events-none bias:text-placeholder"
             src={ChevronDown}
             theme="mini"
         />

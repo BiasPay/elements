@@ -13,14 +13,14 @@ const AE_METADATA = parseAddressData("AE", {
 });
 
 describe("validateAddressState", () => {
-    it("accepts any non-empty value", () => {
+    it("accepts canonical subdivision keys and rejects free-form subdivision names", () => {
         expect(validateAddressState("NY", "US", { showRequired: true })).toEqual({
             valid: true,
             error: null,
         });
-        expect(validateAddressState("Bavaria", "DE", { showRequired: true })).toEqual({
-            valid: true,
-            error: null,
+        expect(validateAddressState("New York", "US", { showRequired: true })).toEqual({
+            valid: false,
+            error: "Select a valid state.",
         });
     });
 

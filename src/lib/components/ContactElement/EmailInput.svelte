@@ -4,15 +4,17 @@
     type Props = {
         id?: string;
         placeholder?: string;
+        readOnly?: boolean;
     };
 
-    let { id, placeholder }: Props = $props();
+    let { id, placeholder, readOnly }: Props = $props();
 </script>
 
 <HostTextField
     fieldType="email"
     class="bias-email"
     {id}
+    {readOnly}
     type="email"
     inputmode="email"
     autocomplete="email"

@@ -7,7 +7,19 @@ export function validateAddressState(
     options: ValueFieldValidationOptions,
     metadata: AddressMetadata = resolveAddressMetadata(country),
 ): ValueFieldValidationResult {
-    if (value.trim()) {
+    const normalized = value.trim();
+    if (normalized) {
+        if (
+            metadata.state.options.length > 0 &&
+            !metadata.state.options.some(
+                ({ key }) => key.toLocaleLowerCase() === normalized.toLocaleLowerCase(),
+            )
+        ) {
+            return {
+                valid: false,
+                error: `Select a valid ${metadata.state.label.toLocaleLowerCase()}.`,
+            };
+        }
         return { valid: true, error: null };
     }
     if (!metadata.state.used || !metadata.state.required) {

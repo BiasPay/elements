@@ -4,6 +4,6 @@ export default defineConfig({
     test: {
         watch: false,
         environment: "jsdom",
-        include: ["src/lib/core/**/*.test.ts"],
+        include: ["src/lib/core/**/*.test.ts", "src/lib/components/Field/**/*.test.ts"],
     },
 });

@@ -65,23 +65,27 @@ export type ValueFieldStatus<T = string> = {
 export type AddressValueFieldType =
     | "country"
     | "postalCode"
-    | "name"
+    | "firstName"
+    | "lastName"
     | "addressLine1"
     | "addressLine2"
     | "city"
-    | "state"
-    | "phone";
+    | "state";
 
 export type FieldType =
     | FrameFieldType
     | AddressValueFieldType
     | "accountType"
+    | "accountHolderType"
     | "email"
+    | "phone"
+    | "name"
     // Shipping-scoped address fields. Kept separate from the billing/payment
     // fields above so a shipping and a billing address form can coexist.
     | "shippingCountry"
     | "shippingPostalCode"
-    | "shippingName"
+    | "shippingFirstName"
+    | "shippingLastName"
     | "shippingAddressLine1"
     | "shippingAddressLine2"
     | "shippingCity"
@@ -97,22 +101,29 @@ export type FieldValueMap = {
     country: string;
     postalCode: string;
     accountType: "checking" | "savings";
+    accountHolderType: "individual" | "company";
     email: string;
+    phone: string;
     name: string;
+    firstName: string;
+    lastName: string;
     addressLine1: string;
     addressLine2: string;
     city: string;
     state: string;
-    phone: string;
     shippingCountry: string;
     shippingPostalCode: string;
-    shippingName: string;
+    shippingFirstName: string;
+    shippingLastName: string;
     shippingAddressLine1: string;
     shippingAddressLine2: string;
     shippingCity: string;
     shippingState: string;
     shippingPhone: string;
 };
+
+/** Fields a contact details element can collect. */
+export type ContactFieldType = "email" | "phone";
 
 export type ValueFieldType = {
     [K in FieldType]: FieldValueMap[K] extends never ? never : K;
@@ -127,16 +138,20 @@ export type UnifiedFieldState = {
     country: ValueFieldStatus<string>;
     postalCode: ValueFieldStatus<string>;
     accountType: ValueFieldStatus<"checking" | "savings">;
+    accountHolderType: ValueFieldStatus<"individual" | "company">;
     email: ValueFieldStatus<string>;
+    phone: ValueFieldStatus<string>;
     name: ValueFieldStatus<string>;
+    firstName: ValueFieldStatus<string>;
+    lastName: ValueFieldStatus<string>;
     addressLine1: ValueFieldStatus<string>;
     addressLine2: ValueFieldStatus<string>;
     city: ValueFieldStatus<string>;
     state: ValueFieldStatus<string>;
-    phone: ValueFieldStatus<string>;
     shippingCountry: ValueFieldStatus<string>;
     shippingPostalCode: ValueFieldStatus<string>;
-    shippingName: ValueFieldStatus<string>;
+    shippingFirstName: ValueFieldStatus<string>;
+    shippingLastName: ValueFieldStatus<string>;
     shippingAddressLine1: ValueFieldStatus<string>;
     shippingAddressLine2: ValueFieldStatus<string>;
     shippingCity: ValueFieldStatus<string>;
@@ -149,8 +164,8 @@ export type UnifiedFieldState = {
 // ---------------------------------------------------------------------------
 
 /**
- * Which independent address a form collects. Billing shares its country,
- * postal code, and name with the payment method; shipping is fully separate.
+ * Which independent address a form collects. Billing shares its country and
+ * postal code with the payment method; shipping is fully separate.
  */
 export type AddressScope = "billing" | "shipping";
 
@@ -158,18 +173,18 @@ export type AddressScope = "billing" | "shipping";
 const SHIPPING_FIELD_MAP: Record<AddressValueFieldType, ValueFieldType> = {
     country: "shippingCountry",
     postalCode: "shippingPostalCode",
-    name: "shippingName",
+    firstName: "shippingFirstName",
+    lastName: "shippingLastName",
     addressLine1: "shippingAddressLine1",
     addressLine2: "shippingAddressLine2",
     city: "shippingCity",
     state: "shippingState",
-    phone: "shippingPhone",
 };
 
 /**
  * Resolve a logical address field type to its concrete field slot for a scope.
- * Billing fields keep their unprefixed names (shared with the payment method);
- * shipping fields map to their `shipping*` counterparts.
+ * Billing fields keep their unprefixed names; shipping fields map to their
+ * `shipping*` counterparts.
  */
 export function scopedField(type: ValueFieldType, scope: AddressScope): ValueFieldType {
     if (scope === "billing") return type;
@@ -180,7 +195,11 @@ export function scopedField(type: ValueFieldType, scope: AddressScope): ValueFie
 // Payment method
 // ---------------------------------------------------------------------------
 
-export type PaymentMethodType = "card" | "us_bank_account";
+export type ConventionalPaymentMethodType = "card" | "us_bank_account";
+export type WalletPaymentMethodType = "apple_pay";
+export type SessionPaymentMethodType = ConventionalPaymentMethodType | WalletPaymentMethodType;
+/** Methods whose details are collected by BiasStore. */
+export type PaymentMethodType = ConventionalPaymentMethodType;
 
 // ---------------------------------------------------------------------------
 // Label style

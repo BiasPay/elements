@@ -8,11 +8,15 @@ type LeafElementModule = {
 
 type LeafElementDefinition = {
     tag: `bias-${string}`;
-    load: () => Promise<LeafElementModule>;
+    load: () => Promise<unknown>;
 };
 
 const leafElementDefinitions = [
     { tag: "bias-payment-element", load: () => import("./custom-elements/PaymentElement.svelte") },
+    {
+        tag: "bias-express-checkout-element",
+        load: () => import("./custom-elements/ExpressCheckoutElement.svelte"),
+    },
     { tag: "bias-card-element", load: () => import("./custom-elements/CardElement.svelte") },
     {
         tag: "bias-us-bank-account-element",
@@ -20,7 +24,15 @@ const leafElementDefinitions = [
     },
     { tag: "bias-address-element", load: () => import("./custom-elements/AddressElement.svelte") },
     { tag: "bias-contact-element", load: () => import("./custom-elements/ContactElement.svelte") },
+    {
+        tag: "bias-discount-code-element",
+        load: () => import("./custom-elements/DiscountCodeElement.svelte"),
+    },
     { tag: "bias-submit-button", load: () => import("./custom-elements/SubmitButton.svelte") },
+    {
+        tag: "bias-remember-details-checkbox",
+        load: () => import("./custom-elements/RememberDetailsCheckbox.svelte"),
+    },
 ] satisfies readonly LeafElementDefinition[];
 
 // Svelte's generated custom-element constructors extend HTMLElement as soon as
@@ -30,7 +42,10 @@ const leafElementModules =
     typeof customElements === "undefined"
         ? undefined
         : await Promise.all(
-              leafElementDefinitions.map(async ({ tag, load }) => ({ tag, module: await load() })),
+              leafElementDefinitions.map(async ({ tag, load }) => ({
+                  tag,
+                  module: (await load()) as LeafElementModule,
+              })),
           );
 
 const ELEMENT_VERSION = 1;
@@ -67,17 +82,24 @@ defineBiasElements();
 
 export { BiasProviderElement } from "./custom-elements/provider";
 export type { BiasFieldBinding } from "./custom-elements/provider";
-export { BiasController } from "./core";
-export type { ElementsController } from "./core";
+export { BiasController } from "./core/BiasController";
+export type {
+    ApplePayContact,
+    ApplePayPresentationUpdate,
+    ElementsController,
+} from "./core/adapter";
 export type {
     BiasAddressElement,
     BiasCardElement,
     BiasChangeEvent,
     BiasCompleteEvent,
     BiasContactElement,
+    BiasDiscountCodeElement,
     BiasErrorEvent,
+    BiasExpressCheckoutElement,
     BiasPaymentElement,
     BiasProviderConfiguration,
+    BiasRememberDetailsCheckboxElement,
     BiasSubmitButtonElement,
     BiasUSBankAccountElement,
 } from "./custom-elements/public-types";
@@ -86,12 +108,21 @@ export type {
     Appearance,
     BiasElementsError,
     BiasElementsState,
+    DetailsSaveState,
+    DiscountCodeAction,
+    DiscountCodeState,
     BiasFieldName,
     BiasFieldState,
     BiasFieldValidator,
     BiasFieldValueMap,
+    ConventionalPaymentMethod,
     PaymentMethod,
+    SavedPaymentMethod,
+    SessionPaymentMethod,
     SessionState,
     SubmissionStatus,
-    ThemeVariables,
-} from "./core";
+    WalletAvailability,
+    WalletAvailabilityStatus,
+    WalletPaymentMethod,
+} from "./core/public-types";
+export type { ThemeVariables } from "./core/theme-variables";

@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { validatePhone } from "./phone";
 
 describe("validatePhone", () => {
-    it("treats empty values as valid (phone is optional)", () => {
+    it("requires a collected phone without surfacing the error before validation", () => {
         expect(validatePhone("", "US", { showRequired: true })).toEqual({
-            valid: true,
-            error: null,
+            valid: false,
+            error: "Required",
         });
         expect(validatePhone("   ", "US", { showRequired: false })).toEqual({
-            valid: true,
+            valid: false,
             error: null,
         });
     });

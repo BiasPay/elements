@@ -57,6 +57,7 @@
             return createMockSession({
                 ...base,
                 amount: 10_000,
+                total: 10_000,
                 dual_pricing: { rate: 3 },
             });
         }
@@ -66,6 +67,7 @@
                 ...base,
                 mode: "setup",
                 amount: 0,
+                total: 0,
                 submit_label: "auto",
             });
         }
@@ -139,17 +141,23 @@
         {:else if clientSecret}
             <bias-provider
                 client-secret={clientSecret}
-                initialCheckoutSession={useMockSession ? previewSession : undefined}
                 {appearance}
             >
                 <div class="form-stack">
                     {#if view === "address-form"}
-                        <bias-address-element collect-phone={collectPhone || undefined}></bias-address-element>
+                        <bias-address-element
+                            scope="shipping"
+                            collect-phone={collectPhone || undefined}
+                        ></bias-address-element>
                     {:else}
                         <bias-contact-element></bias-contact-element>
+                        <bias-discount-code-element></bias-discount-code-element>
                         {#if shippingEnabled}
                             <h2 class="section-heading">Shipping address</h2>
-                            <bias-address-element mode="shipping"></bias-address-element>
+                            <bias-address-element
+                                scope="shipping"
+                                collect-phone={collectPhone || undefined}
+                            ></bias-address-element>
                         {/if}
                         {#if addressEnabled}
                             <h2 class="section-heading">Billing address</h2>

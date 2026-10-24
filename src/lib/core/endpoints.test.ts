@@ -1,32 +1,22 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { mergeCheckoutSessionExpand } from "./endpoints";
 
-afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.resetModules();
-});
-
-describe("development service endpoints", () => {
-    it("uses local defaults when Vite variables are absent", async () => {
-        vi.stubEnv("VITE_BIAS_API_URL", "");
-        vi.stubEnv("VITE_BIAS_FIELD_FRAME_URL", "");
-        vi.resetModules();
-        const { resolveElementsConfig } = await import("./endpoints");
-
-        expect(resolveElementsConfig({ clientSecret: "cs_test" })).toMatchObject({
-            apiBaseUrl: "https://api.bias.localhost",
-            frameUrl: "https://field.bias.localhost",
-        });
+describe("mergeCheckoutSessionExpand", () => {
+    it("adds the expansions Elements requires", () => {
+        expect(mergeCheckoutSessionExpand()).toEqual({ discounts: true, payments: true });
     });
 
-    it("uses endpoint values supplied by the Vite environment", async () => {
-        vi.stubEnv("VITE_BIAS_API_URL", "https://api.dev.example");
-        vi.stubEnv("VITE_BIAS_FIELD_FRAME_URL", "https://field.dev.example");
-        vi.resetModules();
-        const { resolveElementsConfig } = await import("./endpoints");
-
-        expect(resolveElementsConfig({ clientSecret: "cs_test" })).toMatchObject({
-            apiBaseUrl: "https://api.dev.example",
-            frameUrl: "https://field.dev.example",
+    it("keeps nested expansions the caller configured", () => {
+        expect(
+            mergeCheckoutSessionExpand({
+                discounts: { discount: true },
+                payments: { payment_method: true },
+                invoice: { customer: true },
+            }),
+        ).toEqual({
+            discounts: { discount: true },
+            payments: { payment_method: true },
+            invoice: { customer: true },
         });
     });
 });

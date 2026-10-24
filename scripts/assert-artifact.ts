@@ -10,7 +10,11 @@ const endpoints = {
     production: ["https://api.biaspay.com", "https://field.biaspay.com"],
     development: ["https://api.bias.localhost", "https://field.bias.localhost"],
 } as const;
-const artifact = files.map((file) => readFileSync(file, "utf8")).join("\n");
+const artifact = files
+    .map((file) => readFileSync(file, "utf8"))
+    .join("\n")
+    // The bundled SDK's fallback, which Elements override with their own endpoint.
+    .replaceAll(/baseURL \?\? "https:\/\/api\.biaspay\.com"/g, "");
 
 for (const value of endpoints[mode]) {
     if (!artifact.includes(value)) throw new Error(`${mode} artifact is missing ${value}.`);
@@ -20,4 +24,7 @@ for (const value of endpoints[mode === "production" ? "development" : "productio
 }
 for (const value of ["VITE_BIAS_API_URL", "VITE_BIAS_FIELD_FRAME_URL"]) {
     if (artifact.includes(value)) throw new Error(`${mode} artifact contains ${value}.`);
+}
+if (mode === "production" && artifact.includes("{branch}")) {
+    throw new Error("production artifact contains the {branch} placeholder.");
 }

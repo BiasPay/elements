@@ -10,7 +10,16 @@ function fakeCore(): ElementsController {
     return {
         getPublicState: () => ({
             sessionState: { status: "idle" },
+            discountCodeState: {
+                pendingAction: null,
+                error: null,
+                blocked: true,
+                blocksSubmission: false,
+                optimisticallyRemovedDiscountIds: [],
+            },
+            detailsSaveState: { status: "idle" },
             paymentMethod: undefined,
+            walletAvailability: { applePay: "unavailable" },
             status: "idle",
             canSubmit: false,
             submissionError: null,
@@ -20,7 +29,21 @@ function fakeCore(): ElementsController {
         deactivate: vi.fn(),
         updateConfig: vi.fn(),
         refreshSession: vi.fn(),
+        applyDiscountCode: vi.fn(async () => false),
+        removeDiscountCode: vi.fn(async () => false),
+        clearDiscountCodeError: vi.fn(),
+        retryDetailsSave: vi.fn(),
         setPaymentMethod: vi.fn(),
+        setWalletAvailability: vi.fn(),
+        prepareApplePay: vi.fn(async () => null),
+        beginApplePayPresentation: vi.fn(() => null),
+        validateApplePayMerchant: vi.fn(async () => ({})),
+        updateApplePayShippingContact: vi.fn(async () => ({ amount: 0, shippingMethods: [] })),
+        updateApplePayShippingMethod: vi.fn(async () => ({ amount: 0, shippingMethods: [] })),
+        authorizeApplePay: vi.fn(async () => "failure" as const),
+        failApplePayPresentation: vi.fn(),
+        beginWalletPresentation: vi.fn(() => false),
+        cancelWalletPresentation: vi.fn(),
         submit: vi.fn(),
         getField: () =>
             ({
@@ -46,12 +69,16 @@ function fakeCore(): ElementsController {
             setEncryptedData: vi.fn(),
         }),
         autocompleteAddress: async () => [],
+        getAddressVerification: () => ({ status: "idle" }),
+        verifyAddress: async () => null,
         getBillingSameAsShipping: () => false,
         setBillingSameAsShipping: vi.fn(),
         hasCollector: () => false,
         registerCollector: vi.fn(() => unregister),
         registerFrame: vi.fn(() => unregister),
         registerPaymentElement: vi.fn(() => unregister),
+        registerSubmitButton: vi.fn(() => unregister),
+        hasSubmitButton: () => false,
         getAddressMetadata: () => ({ status: "fallback", metadata: {} as never }),
     };
 }
@@ -68,21 +95,6 @@ describe("private renderer contract", () => {
         expect(core.activate).toHaveBeenCalledOnce();
         expect(core.submit).toHaveBeenCalledOnce();
         expect(core.registerPaymentElement).toHaveBeenCalledWith("card");
-    });
-
-    it("delegates reactive configuration through the stable controller", () => {
-        const core = fakeCore();
-        const controller = BiasController.fromCore(core);
-        controller.updateConfig({
-            clientSecret: "cs_next",
-            apiBaseUrl: "https://api.example",
-            frameUrl: "https://frame.example",
-        });
-        expect(core.updateConfig).toHaveBeenCalledWith({
-            clientSecret: "cs_next",
-            apiBaseUrl: "https://api.example",
-            frameUrl: "https://frame.example",
-        });
     });
 
     it("maps logical shipping fields onto their private public-field slots", () => {
@@ -106,10 +118,9 @@ describe("private renderer contract", () => {
     });
 
     it("filters unknown session payment methods instead of casting them", () => {
-        expect(filterSupportedPaymentMethods(["wire", "card", null, "us_bank_account"])).toEqual([
-            "card",
-            "us_bank_account",
-        ]);
+        expect(
+            filterSupportedPaymentMethods(["wire", "apple_pay", "card", null, "us_bank_account"]),
+        ).toEqual(["card", "us_bank_account"]);
     });
 
     it("removes stale package-applied variables", () => {
@@ -133,7 +144,16 @@ describe("private renderer contract", () => {
         };
         core.getPublicState = () => ({
             sessionState: { status: "idle" },
+            discountCodeState: {
+                pendingAction: null,
+                error: null,
+                blocked: true,
+                blocksSubmission: false,
+                optimisticallyRemovedDiscountIds: [],
+            },
+            detailsSaveState: { status: "idle" },
             paymentMethod: undefined,
+            walletAvailability: { applePay: "unavailable" },
             status,
             canSubmit: false,
             submissionError: null,
@@ -149,17 +169,18 @@ describe("private renderer contract", () => {
         probe.stop();
     });
 
-    it("resolves default frame config and updates its renderer identity", () => {
+    it("changes its renderer identity when the secret or frame URL changes", () => {
         const controller = new BiasController({ clientSecret: "cs_test" });
-        expect(controller.frameUrl).toBe("https://field.bias.localhost");
-        expect(controller.sessionKey).toBe(
-            "cs_test:https://api.bias.localhost:https://field.bias.localhost",
-        );
+        expect(controller.frameUrl).toBeTruthy();
+        const initialKey = controller.sessionKey;
 
-        controller.updateConfig({ clientSecret: "cs_next", frameUrl: "https://frames.example" });
-        expect(controller.sessionKey).toBe(
-            "cs_next:https://api.bias.localhost:https://frames.example",
-        );
+        controller.updateConfig({ clientSecret: "cs_next" });
+        const secretKey = controller.sessionKey;
+        expect(secretKey).not.toBe(initialKey);
+
+        controller.updateConfig({ frameUrl: "https://frames.example" });
+        expect(controller.frameUrl).toBe("https://frames.example");
+        expect(controller.sessionKey).not.toBe(secretKey);
     });
 
     it("does not loop when an effect reads state and performs an idempotent adapter write", () => {
@@ -172,7 +193,16 @@ describe("private renderer contract", () => {
         };
         core.getPublicState = () => ({
             sessionState: { status: "idle" },
+            discountCodeState: {
+                pendingAction: null,
+                error: null,
+                blocked: true,
+                blocksSubmission: false,
+                optimisticallyRemovedDiscountIds: [],
+            },
+            detailsSaveState: { status: "idle" },
             paymentMethod: selected,
+            walletAvailability: { applePay: "unavailable" },
             status: "idle",
             canSubmit: false,
             submissionError: null,

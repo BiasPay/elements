@@ -14,7 +14,7 @@ describe("createAutosaver", () => {
         const onSave = vi.fn().mockResolvedValue(undefined);
         const autosaver = createAutosaver(onSave, { delayMs: 1000 });
 
-        autosaver.schedule();
+        autosaver.schedule(1);
         vi.advanceTimersByTime(999);
 
         expect(onSave).not.toHaveBeenCalled();
@@ -24,7 +24,7 @@ describe("createAutosaver", () => {
         const onSave = vi.fn().mockResolvedValue(undefined);
         const autosaver = createAutosaver(onSave, { delayMs: 1000 });
 
-        autosaver.schedule();
+        autosaver.schedule(1);
         await vi.advanceTimersByTimeAsync(1000);
 
         expect(onSave).toHaveBeenCalledTimes(1);
@@ -34,9 +34,9 @@ describe("createAutosaver", () => {
         const onSave = vi.fn().mockResolvedValue(undefined);
         const autosaver = createAutosaver(onSave, { delayMs: 1000 });
 
-        autosaver.schedule();
+        autosaver.schedule(1);
         await vi.advanceTimersByTimeAsync(600);
-        autosaver.schedule();
+        autosaver.schedule(2);
         await vi.advanceTimersByTimeAsync(600);
 
         expect(onSave).not.toHaveBeenCalled();
@@ -49,7 +49,7 @@ describe("createAutosaver", () => {
         const onSave = vi.fn().mockResolvedValue(undefined);
         const autosaver = createAutosaver(onSave, { delayMs: 1000 });
 
-        autosaver.schedule();
+        autosaver.schedule(1);
         autosaver.cancel();
         await vi.advanceTimersByTimeAsync(1000);
 
@@ -63,9 +63,9 @@ describe("createAutosaver", () => {
             return new Promise<void>(() => {});
         });
         const autosaver = createAutosaver(onSave, { delayMs: 1000 });
-        autosaver.schedule();
+        autosaver.schedule(1);
         await vi.advanceTimersByTimeAsync(1000);
-        autosaver.schedule();
+        autosaver.schedule(2);
         autosaver.cancel();
         await vi.advanceTimersByTimeAsync(1000);
 
@@ -86,17 +86,18 @@ describe("createAutosaver", () => {
             .mockResolvedValue(undefined);
         const autosaver = createAutosaver(onSave, { delayMs: 1000 });
 
-        autosaver.schedule();
+        autosaver.schedule(1);
         await vi.advanceTimersByTimeAsync(1000);
         expect(onSave).toHaveBeenCalledTimes(1);
 
         // A schedule call while the first save is still in flight queues a
         // follow-up save rather than overlapping it.
-        autosaver.schedule();
+        autosaver.schedule(2);
         await vi.advanceTimersByTimeAsync(1000);
         expect(onSave).toHaveBeenCalledTimes(1);
 
         resolveFirst();
         await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+        expect(onSave.mock.calls.map((call) => call[1])).toEqual([1, 2]);
     });
 });

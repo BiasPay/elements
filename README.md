@@ -24,24 +24,31 @@ Importing the package in a browser registers every `bias-*` element:
 </script>
 
 <bias-provider client-secret="cs_...">
+    <bias-express-checkout-element show-separator></bias-express-checkout-element>
     <bias-contact-element></bias-contact-element>
+    <bias-discount-code-element></bias-discount-code-element>
     <bias-payment-element payment-method-layout="tabs"></bias-payment-element>
     <bias-submit-button label="Pay now"></bias-submit-button>
 </bias-provider>
 ```
 
-Use exactly one payment surface—`bias-payment-element`, `bias-card-element`, or `bias-us-bank-account-element`—under each provider. Contact and billing or shipping address elements are optional.
+`bias-express-checkout-element` renders Apple Pay when the session and browser support it on Bias Checkout. Apple Pay is not currently available for direct Elements embeds or custom checkout domains. Mount the element before contact and shipping fields for express checkout. It is complementary to the ordinary payment form: use exactly one of `bias-payment-element`, `bias-card-element`, or `bias-us-bank-account-element` for card and bank payments. Contact, discount-code, and billing or shipping address elements are optional. The discount-code element renders only when the session permits customer-entered codes or already has an entered code.
 
 Use DOM properties for structured values and callbacks:
 
 ```js
 const provider = document.querySelector("bias-provider");
 provider.appearance = { variables: { colorPrimary: "#4f46e5" } };
-provider.initialCheckoutSession = session;
+provider.checkoutSessionExpand = { discounts: true };
+provider.defaultValues = { email: "shopper@example.com" };
 provider.onComplete = () => location.assign("/order-confirmed");
 ```
 
 The provider exposes public state, `submit()`, `refreshSession()`, `setPaymentMethod()`, and `getField()`. It emits bubbling `biasready`, `biaschange`, `biascomplete`, and `biaserror` events.
+
+## Your own submit button
+
+`bias-submit-button` shows a session's renewal terms (`subscription_terms`) under itself, and paying through the session records the customer's agreement to them. With your own button, show `subscription_terms` next to it. The bank account form shows the debit authorization (`mandate_text`, or `company_mandate_text` for a business account) whenever the payment saves the account; keep it visible.
 
 Elements render into light DOM, and each custom-element host uses `display: contents`. Multiple provider trees on the same page keep independent state.
 

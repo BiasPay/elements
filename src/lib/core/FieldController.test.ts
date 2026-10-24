@@ -78,6 +78,27 @@ describe("secure field channel", () => {
         expect(JSON.stringify(postMessage.mock.calls[0])).not.toContain("cs_secret");
     });
 
+    it("passes the checkout's frame group in the initialization message", () => {
+        const postMessage = vi.fn();
+        const controller = createFieldController({
+            type: "cardCvc",
+            clientSecret: "cs_secret",
+            frameUrl: "https://field.example.com",
+            group: "checkout-group-1",
+            onStateChange: vi.fn(),
+        });
+        controller.setIframe({
+            contentWindow: { postMessage },
+            parentElement: null,
+        } as unknown as HTMLIFrameElement);
+        controller.handleIframeLoad();
+        expect(postMessage).toHaveBeenCalledWith(
+            expect.objectContaining({ type: "bias:initialize-field", group: "checkout-group-1" }),
+            "https://field.example.com",
+            [channels[0]!.port2],
+        );
+    });
+
     it("queues outbound messages until the private port reports ready", () => {
         const { controller, postMessage } = setup();
         controller.send({ type: "validateFields" });
@@ -98,6 +119,30 @@ describe("secure field channel", () => {
         ).toHaveLength(1);
         channels[0]!.port1.dispatch({ type: "ready" });
         expect(channels[0]!.port1.postMessage).toHaveBeenCalledWith({ type: "validateFields" });
+    });
+
+    it("tells a preview frame it is a preview when authenticating it", () => {
+        const postMessage = vi.fn();
+        const controller = createFieldController({
+            type: "cardNumber",
+            clientSecret: "preview",
+            frameUrl: "https://field.example.com",
+            preview: true,
+            onStateChange: vi.fn(),
+        });
+        controller.setIframe({
+            contentWindow: { postMessage },
+            parentElement: null,
+        } as unknown as HTMLIFrameElement);
+        controller.handleIframeLoad();
+        const channelId = postMessage.mock.calls[0]![0].channelId;
+        channels[0]!.port1.dispatch({ type: "bias:channel-ready", channelId });
+        expect(channels[0]!.port1.postMessage).toHaveBeenCalledWith({
+            type: "bias:authenticate-field",
+            channelId,
+            clientSecret: "preview",
+            preview: true,
+        });
     });
 
     it("ignores a channel acknowledgment with the wrong nonce", () => {
@@ -169,6 +214,17 @@ describe("secure field channel", () => {
         const port = authenticate(postMessage);
         controller.setStyle("color: blue");
         expect(port.postMessage).toHaveBeenCalledWith({ type: "style", style: "color: blue" });
+    });
+
+    it("sends placeholders through the private port", () => {
+        const { controller, postMessage } = setup();
+        controller.handleIframeLoad();
+        const port = authenticate(postMessage);
+        controller.setPlaceholder("Card number");
+        expect(port.postMessage).toHaveBeenCalledWith({
+            type: "placeholder",
+            placeholder: "Card number",
+        });
     });
 
     it("closes a channel when the iframe element changes", () => {

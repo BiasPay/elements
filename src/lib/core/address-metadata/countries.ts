@@ -1,7 +1,10 @@
-// Generated from the Chromium libaddressinput country list; edit deliberately.
+import type { CountryCode } from "@biaspay/sdk-checkout";
+
+// Generated from the Chromium libaddressinput country list, supplemented with the
+// remaining CountryCode regions supported by the SDK; edit deliberately.
 
 /** ISO 3166-1 alpha-2 region code -> English display name. */
-export const COUNTRY_NAMES: Record<string, string> = {
+export const COUNTRY_NAMES = {
     AC: "Ascension Island",
     AD: "Andorra",
     AE: "United Arab Emirates",
@@ -13,6 +16,7 @@ export const COUNTRY_NAMES: Record<string, string> = {
     AO: "Angola",
     AQ: "Antarctica",
     AR: "Argentina",
+    AS: "American Samoa",
     AT: "Austria",
     AU: "Australia",
     AW: "Aruba",
@@ -40,6 +44,7 @@ export const COUNTRY_NAMES: Record<string, string> = {
     BY: "Belarus",
     BZ: "Belize",
     CA: "Canada",
+    CC: "Cocos (Keeling) Islands",
     CD: "Congo - Kinshasa",
     CF: "Central African Republic",
     CG: "Congo - Brazzaville",
@@ -51,8 +56,10 @@ export const COUNTRY_NAMES: Record<string, string> = {
     CN: "China",
     CO: "Colombia",
     CR: "Costa Rica",
+    CU: "Cuba",
     CV: "Cape Verde",
     CW: "Curaçao",
+    CX: "Christmas Island",
     CY: "Cyprus",
     CZ: "Czechia",
     DE: "Germany",
@@ -71,6 +78,7 @@ export const COUNTRY_NAMES: Record<string, string> = {
     FI: "Finland",
     FJ: "Fiji",
     FK: "Falkland Islands",
+    FM: "Micronesia",
     FO: "Faroe Islands",
     FR: "France",
     GA: "Gabon",
@@ -93,6 +101,7 @@ export const COUNTRY_NAMES: Record<string, string> = {
     GW: "Guinea-Bissau",
     GY: "Guyana",
     HK: "Hong Kong SAR China",
+    HM: "Heard & McDonald Islands",
     HN: "Honduras",
     HR: "Croatia",
     HT: "Haiti",
@@ -104,6 +113,7 @@ export const COUNTRY_NAMES: Record<string, string> = {
     IN: "India",
     IO: "British Indian Ocean Territory",
     IQ: "Iraq",
+    IR: "Iran",
     IS: "Iceland",
     IT: "Italy",
     JE: "Jersey",
@@ -116,6 +126,7 @@ export const COUNTRY_NAMES: Record<string, string> = {
     KI: "Kiribati",
     KM: "Comoros",
     KN: "St. Kitts & Nevis",
+    KP: "North Korea",
     KR: "South Korea",
     KW: "Kuwait",
     KY: "Cayman Islands",
@@ -137,11 +148,13 @@ export const COUNTRY_NAMES: Record<string, string> = {
     ME: "Montenegro",
     MF: "St. Martin",
     MG: "Madagascar",
+    MH: "Marshall Islands",
     MK: "North Macedonia",
     ML: "Mali",
     MM: "Myanmar (Burma)",
     MN: "Mongolia",
     MO: "Macao SAR China",
+    MP: "Northern Mariana Islands",
     MQ: "Martinique",
     MR: "Mauritania",
     MS: "Montserrat",
@@ -155,6 +168,7 @@ export const COUNTRY_NAMES: Record<string, string> = {
     NA: "Namibia",
     NC: "New Caledonia",
     NE: "Niger",
+    NF: "Norfolk Island",
     NG: "Nigeria",
     NI: "Nicaragua",
     NL: "Netherlands",
@@ -176,6 +190,7 @@ export const COUNTRY_NAMES: Record<string, string> = {
     PR: "Puerto Rico",
     PS: "Palestinian Territories",
     PT: "Portugal",
+    PW: "Palau",
     PY: "Paraguay",
     QA: "Qatar",
     RE: "Réunion",
@@ -202,6 +217,7 @@ export const COUNTRY_NAMES: Record<string, string> = {
     ST: "São Tomé & Príncipe",
     SV: "El Salvador",
     SX: "Sint Maarten",
+    SY: "Syria",
     SZ: "Eswatini",
     TA: "Tristan da Cunha",
     TC: "Turks & Caicos Islands",
@@ -222,6 +238,7 @@ export const COUNTRY_NAMES: Record<string, string> = {
     TZ: "Tanzania",
     UA: "Ukraine",
     UG: "Uganda",
+    UM: "U.S. Outlying Islands",
     US: "United States",
     UY: "Uruguay",
     UZ: "Uzbekistan",
@@ -229,6 +246,7 @@ export const COUNTRY_NAMES: Record<string, string> = {
     VC: "St. Vincent & Grenadines",
     VE: "Venezuela",
     VG: "British Virgin Islands",
+    VI: "U.S. Virgin Islands",
     VN: "Vietnam",
     VU: "Vanuatu",
     WF: "Wallis & Futuna",
@@ -239,7 +257,7 @@ export const COUNTRY_NAMES: Record<string, string> = {
     ZA: "South Africa",
     ZM: "Zambia",
     ZW: "Zimbabwe",
-};
+} satisfies Record<CountryCode, string>;
 
 export type CountryOption = { code: string; name: string };
 

@@ -1,17 +1,17 @@
-import type { CheckoutSession } from "@biaspay/sdk";
-import {
-    BiasController,
-    themeVariableStyle,
-    type Appearance,
-    type BiasElementsState,
-    type BiasFieldName,
-    type BiasFieldState,
-    type BiasFieldValidator,
-    type BiasFieldValueMap,
-    type ElementsConfig,
-    type ElementsController,
-    type PaymentMethod,
-} from "~/core";
+import type { CheckoutSessionExpand } from "@biaspay/sdk";
+import { BiasController, COMPLETION_DELAY_MS, themeVariableStyle } from "~/core";
+import type { ElementsConfig, ElementsController } from "~/core/adapter";
+import type {
+    Appearance,
+    BiasElementsState,
+    BiasFieldName,
+    BiasFieldState,
+    BiasFieldValidator,
+    BiasFieldValueMap,
+    PaymentMethod,
+    SavedPaymentMethod,
+    ShopperCheckoutSessionUpdateParams,
+} from "~/core/public-types";
 import { registerProvider, unregisterProvider } from "./registry";
 
 export type BiasFieldBinding<K extends BiasFieldName> = {
@@ -36,7 +36,12 @@ export class BiasProviderElement extends HTMLElementBase {
     private appliedVariables = new Set<string>();
     private lastStatus: BiasElementsState["status"] | undefined;
     private lastError: unknown;
-    private _initialCheckoutSession: CheckoutSession | undefined;
+    private completionTimer: ReturnType<typeof setTimeout> | undefined;
+    private _checkoutSessionExpand: CheckoutSessionExpand | undefined;
+    private _defaultValues: Partial<BiasFieldValueMap> | undefined;
+    private _rememberDetails = false;
+    private _savedPaymentMethods: readonly SavedPaymentMethod[] = [];
+    private _apiBaseUrl: string | undefined;
     private _appearance: Appearance | undefined;
     private _onComplete: (() => void) | undefined;
 
@@ -59,11 +64,43 @@ export class BiasProviderElement extends HTMLElementBase {
         this.setStringAttribute("client-secret", value);
     }
 
-    get initialCheckoutSession(): CheckoutSession | undefined {
-        return this._initialCheckoutSession;
+    get checkoutSessionExpand(): CheckoutSessionExpand | undefined {
+        return this._checkoutSessionExpand;
     }
-    set initialCheckoutSession(value: CheckoutSession | undefined) {
-        this._initialCheckoutSession = value;
+    set checkoutSessionExpand(value: CheckoutSessionExpand | undefined) {
+        this._checkoutSessionExpand = value;
+        this.updateOwnedConfig();
+    }
+
+    get defaultValues(): Partial<BiasFieldValueMap> | undefined {
+        return this._defaultValues;
+    }
+    set defaultValues(value: Partial<BiasFieldValueMap> | undefined) {
+        this._defaultValues = value;
+        this.updateOwnedConfig();
+    }
+
+    get rememberDetails(): boolean {
+        return this._rememberDetails;
+    }
+    set rememberDetails(value: boolean) {
+        this._rememberDetails = value;
+        this.updateOwnedConfig();
+    }
+
+    get savedPaymentMethods(): readonly SavedPaymentMethod[] {
+        return this._savedPaymentMethods;
+    }
+    set savedPaymentMethods(value: readonly SavedPaymentMethod[]) {
+        this._savedPaymentMethods = value;
+        this.updateOwnedConfig();
+    }
+
+    get apiBaseUrl(): string | undefined {
+        return this._apiBaseUrl;
+    }
+    set apiBaseUrl(value: string | undefined) {
+        this._apiBaseUrl = value;
         this.updateOwnedConfig();
     }
 
@@ -86,19 +123,28 @@ export class BiasProviderElement extends HTMLElementBase {
         this.updateOwnedConfig();
     }
 
-    get sessionState() {
+    get sessionState(): BiasElementsState["sessionState"] {
         return this.requireController().getPublicState().sessionState;
     }
-    get paymentMethod() {
+    get detailsSaveState(): BiasElementsState["detailsSaveState"] {
+        return this.requireController().getPublicState().detailsSaveState;
+    }
+    get discountCodeState(): BiasElementsState["discountCodeState"] {
+        return this.requireController().getPublicState().discountCodeState;
+    }
+    get paymentMethod(): BiasElementsState["paymentMethod"] {
         return this.requireController().getPublicState().paymentMethod;
     }
-    get status() {
+    get savedPaymentMethod() {
+        return this.requireController().getPublicState().savedPaymentMethod;
+    }
+    get status(): BiasElementsState["status"] {
         return this.requireController().getPublicState().status;
     }
     get canSubmit() {
         return this.requireController().getPublicState().canSubmit;
     }
-    get submissionError() {
+    get submissionError(): BiasElementsState["submissionError"] {
         return this.requireController().getPublicState().submissionError;
     }
 
@@ -126,8 +172,24 @@ export class BiasProviderElement extends HTMLElementBase {
         this.requireController().refreshSession();
     }
 
+    updateCheckoutSession(params: ShopperCheckoutSessionUpdateParams) {
+        return this.requireController().updateCheckoutSession(params);
+    }
+
+    retryDetailsSave(): void {
+        this.requireController().retryDetailsSave();
+    }
+
     setPaymentMethod(method: PaymentMethod): void {
         this.requireController().setPaymentMethod(method);
+    }
+
+    setSavedPaymentMethod(id: string): void {
+        this.requireController().setSavedPaymentMethod(id);
+    }
+
+    clearRememberedDetails(): void {
+        this.requireController().clearRememberedDetails();
     }
 
     getField<K extends BiasFieldName>(
@@ -142,7 +204,11 @@ export class BiasProviderElement extends HTMLElementBase {
     private config(): ElementsConfig {
         return {
             clientSecret: this.clientSecret,
-            initialCheckoutSession: this._initialCheckoutSession,
+            checkoutSessionExpand: this._checkoutSessionExpand,
+            defaultValues: this._defaultValues,
+            rememberDetails: this._rememberDetails,
+            savedPaymentMethods: this._savedPaymentMethods,
+            apiBaseUrl: this._apiBaseUrl,
             appearance: this._appearance,
             onComplete: () => this._onComplete?.(),
         };
@@ -174,6 +240,7 @@ export class BiasProviderElement extends HTMLElementBase {
         this.unsubscribe = undefined;
         if (this.ownsController) this.core?.deactivate();
         if (this.ownsController) this.core = undefined;
+        this.cancelCompletionEvent();
         this.lastStatus = undefined;
         this.lastError = undefined;
     }
@@ -191,14 +258,30 @@ export class BiasProviderElement extends HTMLElementBase {
         this.toggleAttribute("data-bias-loading", !visible);
         this.dispatchEvent(new CustomEvent("biaschange", { detail: state, bubbles: true }));
         if (state.status === "succeeded" && this.lastStatus !== "succeeded") {
-            this.dispatchEvent(new CustomEvent("biascomplete", { detail: state, bubbles: true }));
+            this.completionTimer = setTimeout(() => {
+                this.completionTimer = undefined;
+                if (!this.isConnected || this.core?.getPublicState().status !== "succeeded") return;
+                this.dispatchEvent(
+                    new CustomEvent("biascomplete", { detail: state, bubbles: true }),
+                );
+            }, COMPLETION_DELAY_MS);
+        } else if (state.status !== "succeeded") {
+            this.cancelCompletionEvent();
         }
-        const error = state.submissionError ?? (session.status === "error" ? session.error : null);
+        const error =
+            state.submissionError ??
+            (state.detailsSaveState.status === "error" ? state.detailsSaveState.error : null) ??
+            (session.status === "error" ? session.error : null);
         if (error && error !== this.lastError) {
             this.dispatchEvent(new CustomEvent("biaserror", { detail: error, bubbles: true }));
         }
         this.lastStatus = state.status;
         this.lastError = error;
+    }
+
+    private cancelCompletionEvent(): void {
+        if (this.completionTimer !== undefined) clearTimeout(this.completionTimer);
+        this.completionTimer = undefined;
     }
 
     private applyAppearance(): void {

@@ -1,0 +1,7 @@
+[lint]
+flavor = "oxlint"
+denyWarnings = true
+ignorePatterns = ["**/node_modules/**", "**/dist/**", "**/*.svelte"]
+
+[lint.rules]
+no-unused-vars = ["error", { caughtErrors = "all", argsIgnorePattern = "^_", varsIgnorePattern = "^_", caughtErrorsIgnorePattern = "^_" }]

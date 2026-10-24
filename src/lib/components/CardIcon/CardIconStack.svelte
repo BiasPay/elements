@@ -46,7 +46,7 @@
     }
 </script>
 
-<div class="bias-cardIconStack 🔒 bias:grid bias:absolute bias:right-2 bias:top-1/2 bias:-translate-y-1/2">
+<div class="bias-cardIconStack 🔒 bias:grid bias:absolute bias:right-(--bias-input-padding-inline) bias:top-1/2 bias:-translate-y-1/2">
     {#each stack as entry (entry.id)}
         <div
             class="🔒 bias:col-start-1 bias:row-start-1 bias:origin-right"

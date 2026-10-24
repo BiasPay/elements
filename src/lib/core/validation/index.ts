@@ -7,6 +7,7 @@ import type {
 } from "../types";
 import { validateAddressCity, validateAddressState } from "./address";
 import { validateEmail } from "./email";
+import { validatePhone } from "./phone";
 import { validatePostalCode } from "./postalCode";
 
 /**
@@ -37,6 +38,8 @@ export function getFieldValidation<K extends ValueFieldType>(
 ): ValueFieldValidationResult {
     const validator = validators[type] as ValueFieldValidator<K> | undefined;
     if (validator) return validator(value, options);
+    if (type === "addressLine2" || type === "shippingAddressLine2")
+        return { valid: true, error: null };
     if (type === "email") return validateEmail(value as string, options);
     if (type === "postalCode" || type === "shippingPostalCode")
         return validatePostalCode(value as string, country, options);
@@ -44,5 +47,7 @@ export function getFieldValidation<K extends ValueFieldType>(
         return validateAddressState(value as string, country, options);
     if (type === "city" || type === "shippingCity")
         return validateAddressCity(value as string, country, options);
+    if (type === "phone" || type === "shippingPhone")
+        return validatePhone(value as string, country, options);
     return defaultFieldValidation(value, options);
 }

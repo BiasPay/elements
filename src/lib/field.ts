@@ -5,6 +5,7 @@ export type FieldControllerHandle = {
     readonly iframeSrc: string;
     send(message: unknown): void;
     setStyle(style: string): void;
+    setPlaceholder(placeholder: string): void;
     setIframe(element: HTMLIFrameElement | undefined): void;
     handleIframeLoad(): void;
     destroy(): void;
@@ -19,6 +20,8 @@ export function createBiasFieldController(
         type,
         clientSecret: frame.clientSecret,
         frameUrl: frame.frameUrl,
+        preview: frame.preview,
+        group: frame.group,
         onStateChange: frame.setState,
         onEncryptedData: (field, value) => {
             if (field === type) frame.setEncryptedData(value);
@@ -36,6 +39,7 @@ export function createBiasFieldController(
         },
         send: controller.send,
         setStyle: controller.setStyle,
+        setPlaceholder: controller.setPlaceholder,
         setIframe: controller.setIframe,
         handleIframeLoad: controller.handleIframeLoad,
         destroy() {

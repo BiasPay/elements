@@ -115,8 +115,8 @@
             <Checkbox bind:value={addressEnabled} label="Billing address" />
             <Checkbox bind:value={shippingEnabled} label="Shipping address" />
         {/if}
-        {#if view === "address-form" || addressEnabled}
-            <Checkbox bind:value={collectPhone} label="Collect phone" />
+        {#if view === "address-form" || shippingEnabled}
+            <Checkbox bind:value={collectPhone} label="Collect shipping phone" />
         {/if}
     </Folder>
 

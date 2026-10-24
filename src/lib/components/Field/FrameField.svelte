@@ -10,11 +10,19 @@
         class: string;
         id?: string;
         placeholder?: string;
+        floatingLabelShrunk?: boolean;
         /** Optional overlay rendered inside the frame (e.g. the card-brand icons). */
         children?: Snippet;
     };
 
-    let { fieldType, class: className, id, placeholder, children }: Props = $props();
+    let {
+        fieldType,
+        class: className,
+        id,
+        placeholder,
+        floatingLabelShrunk = false,
+        children,
+    }: Props = $props();
 
     const ctx = getBiasContext();
     const f = $derived(ctx.fieldState[fieldType]);
@@ -28,6 +36,6 @@
     error={f.error}
     dataFieldType={fieldType}
 >
-    <FieldFrame {fieldType} {placeholder} {id} />
+    <FieldFrame {fieldType} {placeholder} {id} {floatingLabelShrunk} />
     {@render children?.()}
 </FieldShell>

@@ -1,26 +1,22 @@
 <script lang="ts">
     import { onDestroy, untrack } from "svelte";
     import type { FrameFieldType } from "~/core";
-    import { getBiasContext } from "~/context.svelte";
+    import { getAppearanceAccessor, getBiasContext } from "~/context.svelte";
     import { createBiasFieldController, type FieldControllerHandle } from "~/field";
     import { cn } from "~/utils/classes";
+    import { buildFieldFrameStyle, FIELD_FRAME_CSS_VARS } from "./fieldFrameStyle";
 
     type Props = {
         fieldType: FrameFieldType;
         id?: string;
         placeholder?: string;
+        floatingLabelShrunk?: boolean;
     };
 
-    let { fieldType, id, placeholder }: Props = $props();
+    let { fieldType, id, placeholder, floatingLabelShrunk = false }: Props = $props();
 
     const ctx = getBiasContext();
-
-    const CSS_VARS = [
-        "--bias-color-foreground",
-        "--bias-font-family",
-        "--bias-font-size",
-        "--bias-input-padding-inline",
-    ] as const;
+    const appearance = getAppearanceAccessor();
 
     const FRAME_TITLES: Record<FrameFieldType, string> = {
         cardNumber: "Card number",
@@ -36,10 +32,9 @@
     let sessionKey = ctx.sessionKey;
     let iframeEl = $state<HTMLIFrameElement | undefined>();
     let prevStyle = "";
+    let prevPlaceholder: string | undefined;
 
-    const field = $derived(ctx.fieldState[fieldType]);
     const disabled = $derived(ctx.submitDisabled);
-    const showPlaceholder = $derived(!!placeholder && field?.empty !== false);
 
     // Recreate the controller when the session (client secret / frame url) changes.
     $effect(() => {
@@ -48,6 +43,7 @@
             controller.destroy();
             controller = createBiasFieldController(fieldType, ctx);
             prevStyle = "";
+            prevPlaceholder = undefined;
             sessionKey = key;
         }
     });
@@ -57,39 +53,46 @@
         controller.setIframe(iframeEl);
     });
 
-    // Push computed CSS-variable-derived styling into the cross-origin frame
-    // whenever the reactive inputs change. The inputs are passed as arguments so
-    // reading them registers the effect's dependencies; getComputedStyle itself
-    // is not reactive, so the CSS-variable values are read imperatively inside.
+    // Push presentation into the cross-origin frame whenever its reactive inputs
+    // change. Style is sent before placeholder text so a newly loaded field never
+    // paints an unpadded placeholder. The first style also skips animation; later
+    // updates retain the normal padding transition. Colors are read from computed
+    // CSS variables, which aren't reactive, so appearance changes re-sync too.
     $effect(() => {
-        syncStyle(disabled, iframeEl);
+        appearance();
+        syncPresentation(disabled, floatingLabelShrunk, placeholder, iframeEl);
     });
 
-    function syncStyle(isDisabled: boolean, frame: HTMLIFrameElement | undefined) {
+    function syncPresentation(
+        isDisabled: boolean,
+        isFloatingLabelShrunk: boolean,
+        nextPlaceholder: string | undefined,
+        frame: HTMLIFrameElement | undefined,
+    ) {
         if (!frame) return;
 
         const computed = getComputedStyle(frame);
-        const cssVars: Record<string, string> = {};
-        for (const name of CSS_VARS) {
+        const cssVars = {} as Record<(typeof FIELD_FRAME_CSS_VARS)[number], string>;
+        for (const name of FIELD_FRAME_CSS_VARS) {
             cssVars[name] = computed.getPropertyValue(name).trim();
         }
 
-        const frameStyle = [
-            cssVars["--bias-color-foreground"] &&
-                `input { color: ${cssVars["--bias-color-foreground"]}; }`,
-            cssVars["--bias-font-family"] &&
-                `input { font-family: ${cssVars["--bias-font-family"]}; }`,
-            cssVars["--bias-font-size"] && `input { font-size: ${cssVars["--bias-font-size"]}; }`,
-            cssVars["--bias-input-padding-inline"] &&
-                `input { padding-inline: ${cssVars["--bias-input-padding-inline"]}; }`,
-            isDisabled && "input { opacity: 0.75 }",
-        ]
-            .filter(Boolean)
-            .join("\n");
+        const frameStyle = buildFieldFrameStyle({
+            cssVars,
+            disabled: isDisabled,
+            floatingLabelShrunk: isFloatingLabelShrunk,
+            animatePadding: prevStyle !== "",
+        });
 
         if (frameStyle !== prevStyle) {
             prevStyle = frameStyle;
             controller.setStyle(frameStyle);
+        }
+
+        const resolvedPlaceholder = nextPlaceholder ?? "";
+        if (resolvedPlaceholder !== prevPlaceholder) {
+            prevPlaceholder = resolvedPlaceholder;
+            controller.setPlaceholder(resolvedPlaceholder);
         }
     }
 
@@ -97,26 +100,24 @@
 </script>
 
 <div class="bias-fieldFrame 🔒 bias:contents">
-    <span
-        class={cn(
-            "bias-fieldPlaceholder 🔒 bias:absolute bias:inset-0 bias:z-10 bias:flex bias:items-center bias:h-full bias:px-(--bias-input-padding-inline) bias:text-(length:--bias-font-size) bias:pointer-events-none bias:text-(--bias-color-placeholder)",
-            !showPlaceholder && "bias:hidden",
-        )}
-        style="font-family: var(--bias-font-family);"
-            aria-hidden="true"
-        >
-        {placeholder}
-    </span>
-    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-    <iframe
-        {id}
-        bind:this={iframeEl}
-        src={controller.iframeSrc}
-        title={FRAME_TITLES[fieldType]}
-        class={cn("🔒 bias:absolute bias:inset-0 bias:w-full bias:h-full bias:border-none", disabled && "bias:pointer-events-none")}
-        aria-disabled={disabled ? "true" : undefined}
-        scrolling="no"
-        tabindex={disabled ? -1 : undefined}
-        onload={() => controller.handleIframeLoad()}
-    ></iframe>
+    <!-- A field document accepts a single private channel, so each controller (one per
+         session) gets its own iframe document even when the frame URL is unchanged. -->
+    {#key controller}
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+        <iframe
+            {id}
+            bind:this={iframeEl}
+            src={controller.iframeSrc}
+            title={FRAME_TITLES[fieldType]}
+            referrerpolicy="origin"
+            class={cn(
+                "🔒 bias:absolute bias:inset-0 bias:w-full bias:h-full bias:rounded-bias bias:border-none",
+                disabled && "bias:pointer-events-none",
+            )}
+            aria-disabled={disabled ? "true" : undefined}
+            scrolling="no"
+            tabindex={disabled ? -1 : undefined}
+            onload={() => controller.handleIframeLoad()}
+        ></iframe>
+    {/key}
 </div>

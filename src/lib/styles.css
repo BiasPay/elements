@@ -18,7 +18,7 @@
 @import "tailwindcss/theme.css" layer(bias-theme) prefix(bias);
 @import "tailwindcss/utilities.css" layer(bias-utilities) prefix(bias);
 
-@theme {
+@theme inline {
     --text-xs: calc(var(--bias-font-size) * 0.75);
     --text-sm: calc(var(--bias-font-size) * 0.875);
     --text-base: var(--bias-font-size);
@@ -32,6 +32,19 @@
     --text-7xl: calc(var(--bias-font-size) * 4.5);
     --text-8xl: calc(var(--bias-font-size) * 6);
     --text-9xl: calc(var(--bias-font-size) * 8);
+}
+
+@theme inline {
+    --color-primary: var(--bias-color-primary);
+    --color-background: var(--bias-color-background);
+    --color-input: var(--bias-color-input);
+    --color-success: var(--bias-color-success);
+    --color-error: var(--bias-color-error);
+    --color-foreground: var(--bias-color-foreground);
+    --color-muted-foreground: var(--bias-color-muted-foreground);
+    --color-border: var(--bias-color-border);
+    --color-placeholder: var(--bias-color-placeholder);
+    --radius-bias: var(--bias-border-radius);
 }
 
 /*
@@ -48,6 +61,7 @@ bias-card-element,
 bias-us-bank-account-element,
 bias-address-element,
 bias-contact-element,
+bias-discount-code-element,
 bias-submit-button {
     display: contents;
 }
@@ -160,16 +174,23 @@ bias-provider[data-bias-loading] {
         &.bias-fieldError {
             z-index: 1;
             border-color: var(--bias-color-error);
-            box-shadow:
-                var(--bias-shadow),
-                inset 0 0 0 0.5px var(--bias-color-error),
-                0 0 0 0.5px var(--bias-color-error);
+
+            /* On the ring layer so a frame field's iframe can't cover it; 1.85px = the 0.85px
+               of border this layer overlaps + 1px inside. */
+            &::after {
+                opacity: 1;
+                box-shadow: inset 0 0 0 1.85px var(--bias-color-error);
+            }
         }
 
         &.bias-fieldDisabled {
             cursor: default;
             opacity: 1;
-            background-color: #f2f2f2;
+            background-color: color-mix(
+                in srgb,
+                var(--bias-color-input),
+                var(--bias-color-foreground) 7%
+            );
             border-color: color-mix(in srgb, var(--bias-color-border), transparent 40%);
             box-shadow: var(--bias-shadow);
         }
@@ -180,6 +201,7 @@ bias-provider[data-bias-loading] {
         appearance: none;
         background: none;
         border: none;
+        border-radius: inherit;
         outline: none;
         width: 100%;
         height: 100%;

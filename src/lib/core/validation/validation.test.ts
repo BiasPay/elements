@@ -36,6 +36,34 @@ describe("getFieldValidation", () => {
         expect(result).toEqual({ valid: false, error: "Required" });
     });
 
+    it.each(["addressLine2", "shippingAddressLine2"] as const)(
+        "treats empty optional field %s as valid",
+        (field) => {
+            const result = getFieldValidation(field, "", { showRequired: true }, {}, "US");
+            expect(result).toEqual({ valid: true, error: null });
+        },
+    );
+
+    it("uses country-aware phone validation for shippingPhone", () => {
+        expect(getFieldValidation("shippingPhone", "", { showRequired: false }, {}, "US")).toEqual({
+            valid: false,
+            error: null,
+        });
+        expect(getFieldValidation("shippingPhone", "", { showRequired: true }, {}, "US")).toEqual({
+            valid: false,
+            error: "Required",
+        });
+        expect(
+            getFieldValidation(
+                "shippingPhone",
+                "(212) 555-0123",
+                { showRequired: false },
+                {},
+                "US",
+            ),
+        ).toEqual({ valid: true, error: null });
+    });
+
     it("uses custom validator when registered", () => {
         const customValidator: ValueFieldValidator<"name"> = (value, _options) => ({
             valid: value.length >= 3,

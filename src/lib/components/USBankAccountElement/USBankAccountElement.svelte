@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { Appearance } from "~/core";
+    import { mandateText, type Appearance } from "~/core";
     import { getAddressScope, getBiasContext } from "~/context.svelte";
     import { appearance as appearanceAction } from "~/utils/appearance";
     import CountrySelect from "../Field/CountrySelect.svelte";
@@ -8,6 +8,7 @@
     import Row from "../Row/Row.svelte";
     import SameAsShippingToggle from "~/components/SameAsShippingToggle/SameAsShippingToggle.svelte";
     import AccountNumberInput from "./AccountNumberInput.svelte";
+    import AccountHolderTypeSelect from "./AccountHolderTypeSelect.svelte";
     import AccountTypeSelect from "./AccountTypeSelect.svelte";
     import NameInput from "../Field/NameInput.svelte";
     import RoutingNumberInput from "./RoutingNumberInput.svelte";
@@ -36,6 +37,12 @@
     const sameAsShipping = $derived(showSameAsShipping && ctx.snapshot.billingSameAsShipping);
     const fs = $derived(ctx.fieldState);
     const metadata = $derived(ctx.addressMetadata(scope));
+    /** Saving a new bank account accepts this authorization for later debits. */
+    const authorization = $derived(
+        mandateText(ctx.checkoutSession, fs.accountHolderType?.value ?? "individual"),
+    );
+    /** The holder picks which authorization the customer accepts, so it's asked when saving. */
+    const savesAccount = $derived(mandateText(ctx.checkoutSession) !== null);
 
     function handleSameAsShippingChange(detail: { checked: boolean }) {
         ctx.setBillingSameAsShipping(detail.checked);
@@ -49,6 +56,14 @@
         {/snippet}
     </FieldGroup>
 
+    {#if savesAccount}
+        <FieldGroup label="Account holder" fieldType="accountHolderType" {appearance}>
+            {#snippet input(placeholder, id)}
+                <AccountHolderTypeSelect {id} />
+            {/snippet}
+        </FieldGroup>
+    {/if}
+
     <FieldGroup label="Account type" fieldType="accountType" {appearance}>
         {#snippet input(placeholder, id)}
             <AccountTypeSelect {id} />
@@ -61,8 +76,8 @@
         {appearance}
         error={fs.bankRoutingNumber.error}
     >
-        {#snippet input(placeholder, id)}
-            <RoutingNumberInput {id} {placeholder} />
+        {#snippet input(placeholder, id, _ariaDescribedby, floatingLabelShrunk)}
+            <RoutingNumberInput {id} {placeholder} {floatingLabelShrunk} />
         {/snippet}
     </FieldGroup>
 
@@ -72,8 +87,8 @@
         {appearance}
         error={fs.bankAccountNumber.error}
     >
-        {#snippet input(placeholder, id)}
-            <AccountNumberInput {id} {placeholder} />
+        {#snippet input(placeholder, id, _ariaDescribedby, floatingLabelShrunk)}
+            <AccountNumberInput {id} {placeholder} {floatingLabelShrunk} />
         {/snippet}
     </FieldGroup>
 
@@ -132,5 +147,13 @@
                 </FieldGroup>
             {/if}
         </Row>
+    {/if}
+
+    {#if authorization}
+        <p
+            class="bias-mandateText 🔒 bias:m-0 bias:text-xs bias:leading-snug bias:whitespace-pre-line bias:text-muted-foreground"
+        >
+            {authorization}
+        </p>
     {/if}
 </div>

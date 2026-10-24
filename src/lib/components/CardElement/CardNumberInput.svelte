@@ -6,9 +6,10 @@
     type Props = {
         id?: string;
         placeholder?: string;
+        floatingLabelShrunk?: boolean;
     };
 
-    let { id, placeholder }: Props = $props();
+    let { id, placeholder, floatingLabelShrunk = false }: Props = $props();
 
     const ctx = getBiasContext();
     const cardBrand = $derived(ctx.fieldState.cardNumber.cardBrand);
@@ -18,6 +19,7 @@
     fieldType="cardNumber"
     class="bias-cardNumber"
     {id}
+    {floatingLabelShrunk}
     placeholder={placeholder ?? "1234 1234 1234 1234"}
 >
     <CardIconStack {cardBrand} />

@@ -8,7 +8,7 @@
 <label
     for={htmlFor}
     class={cn(
-        "bias-formLabel 🔒 bias:block bias:text-sm bias:font-normal bias:pb-[0.35rem] bias:text-(--bias-color-muted-foreground)",
+        "bias-formLabel 🔒 bias:block bias:text-sm bias:font-normal bias:pb-[0.35rem] bias:text-muted-foreground",
         className,
     )}
 >{label}</label>

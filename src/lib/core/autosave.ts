@@ -1,62 +1,62 @@
 export type Autosaver = {
-    schedule(): void;
+    schedule(generation: number): void;
+    retry(generation: number): void;
     cancel(): Promise<void>;
 };
 
 export function createAutosaver(
-    onSave: (signal: AbortSignal) => Promise<unknown>,
+    onSave: (signal: AbortSignal, generation: number) => Promise<unknown>,
     { delayMs = 1000 }: { delayMs?: number } = {},
 ): Autosaver {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    let isSaving = false;
-    let pendingSave = false;
-    let generation = 0;
-    let activeRequest: AbortController | undefined;
-    let activePromise: Promise<void> | undefined;
+    let pendingGeneration: number | undefined;
+    let active:
+        | {
+              request: AbortController;
+              promise: Promise<void>;
+          }
+        | undefined;
 
     function startSave() {
-        activePromise = runSave();
+        if (active || pendingGeneration === undefined) return;
+        const generation = pendingGeneration;
+        pendingGeneration = undefined;
+        const request = new AbortController();
+        const promise = runSave(request, generation);
+        active = { request, promise };
     }
 
-    async function runSave() {
-        const ownedGeneration = generation;
-        isSaving = true;
-        pendingSave = false;
-        const request = new AbortController();
-        activeRequest = request;
+    async function runSave(request: AbortController, generation: number) {
         try {
-            await onSave(request.signal);
+            await onSave(request.signal, generation);
         } finally {
-            if (activeRequest === request) activeRequest = undefined;
-            if (ownedGeneration === generation) {
-                isSaving = false;
-                if (pendingSave) startSave();
-            }
+            if (active?.request === request) active = undefined;
+            if (!active && pendingGeneration !== undefined && timeoutId === null) startSave();
         }
     }
 
     function trigger() {
         timeoutId = null;
-        if (isSaving) {
-            pendingSave = true;
-            return;
-        }
         startSave();
     }
 
+    function enqueue(generation: number, delay: number) {
+        pendingGeneration = generation;
+        if (timeoutId !== null) clearTimeout(timeoutId);
+        timeoutId = setTimeout(trigger, delay);
+    }
+
     return {
-        schedule() {
-            if (timeoutId !== null) clearTimeout(timeoutId);
-            timeoutId = setTimeout(trigger, delayMs);
+        schedule(generation) {
+            enqueue(generation, delayMs);
+        },
+        retry(generation) {
+            enqueue(generation, 0);
         },
         cancel() {
-            generation++;
-            pendingSave = false;
-            isSaving = false;
-            activeRequest?.abort();
-            activeRequest = undefined;
-            const settling = activePromise?.catch(() => undefined) ?? Promise.resolve();
-            activePromise = undefined;
+            pendingGeneration = undefined;
+            active?.request.abort();
+            const settling = active?.promise.catch(() => undefined) ?? Promise.resolve();
             if (timeoutId !== null) {
                 clearTimeout(timeoutId);
                 timeoutId = null;

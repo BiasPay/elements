@@ -7,6 +7,11 @@ import cssInjectedByJs from "vite-plugin-css-injected-by-js";
 export default defineConfig(({ mode }) => {
     const isDevelopment = mode === "development";
     const developmentEnv = loadEnv(mode, resolve(__dirname, "dev"), "VITE_BIAS_");
+    const remoteDevelopmentHost = loadEnv(
+        mode,
+        resolve(__dirname, "../../.."),
+        "",
+    ).REMOTE_DEVELOPMENT_URL;
 
     return {
         // Compiled component styles are injected by the JS bundle at import time, so
@@ -21,6 +26,9 @@ export default defineConfig(({ mode }) => {
             alias: {
                 "~": resolve(__dirname, "src/lib"),
             },
+        },
+        server: {
+            allowedHosts: remoteDevelopmentHost ? [remoteDevelopmentHost] : [],
         },
         define: isDevelopment
             ? {

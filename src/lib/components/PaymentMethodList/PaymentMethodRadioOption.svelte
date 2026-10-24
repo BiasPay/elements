@@ -8,7 +8,11 @@
 
     type Props = {
         label: string;
+        detail?: string;
+        secondaryDetail?: string;
+        saving?: string;
         icon?: IconSource;
+        leading?: Snippet;
         selected?: boolean;
         first?: boolean;
         last?: boolean;
@@ -16,21 +20,32 @@
         content: Snippet;
     };
 
-    let { label, icon, selected = false, first = false, last = false, onselect, content }: Props =
-        $props();
+    let {
+        label,
+        detail,
+        secondaryDetail,
+        saving,
+        icon,
+        leading,
+        selected = false,
+        first = false,
+        last = false,
+        onselect,
+        content,
+    }: Props = $props();
 
     const ctx = getBiasContext();
-    const disabled = $derived(ctx.snapshot.submitLoading || ctx.snapshot.submitSuccess);
+    const disabled = $derived(ctx.snapshot.submitDisabled);
 </script>
 
 <div
     style:--calculated-radius="calc(var(--bias-border-radius) + 2px)"
     class={cn(
-        "bias-paymentMethodRadioOption 🔒 bias:relative bias:flex bias:flex-col bias:border-l bias:border-r bias:border-(--bias-color-border) bias:bg-(--bias-color-background)",
+        "bias-paymentMethodRadioOption 🔒 bias:relative bias:flex bias:flex-col bias:border-l bias:border-r bias:border-border bias:bg-background",
         selected ? "bias:z-10" : "bias:hover:z-10",
-        first && "bias:rounded-t-(--calculated-radius) bias:border-t bias:border-(--bias-color-border)",
-        !first && "bias:border-t bias:border-(--bias-color-border)",
-        last && "bias:rounded-b-(--calculated-radius) bias:border-b bias:border-(--bias-color-border)",
+        first && "bias:rounded-t-(--calculated-radius) bias:border-t bias:border-border",
+        !first && "bias:border-t bias:border-border",
+        last && "bias:rounded-b-(--calculated-radius) bias:border-b bias:border-border",
     )}
 >
     <button
@@ -43,23 +58,34 @@
             disabled
                 ? "bias:cursor-default bias:pointer-events-none"
                 : selected
-                  ? "bias:text-(--bias-color-primary) bias:cursor-default bias:font-medium"
-                  : "bias:text-(--bias-color-muted-foreground) bias:cursor-pointer",
+                  ? "bias:text-primary bias:cursor-default bias:font-medium"
+                  : "bias:text-muted-foreground bias:cursor-pointer",
         )}
         {disabled}
         onclick={() => onselect?.()}
     >
         <div
-            class="🔒 bias:absolute bias:inset-1 bias:-z-10 bias:rounded-[calc(var(--bias-border-radius)-2px)] bias:bg-[color-mix(in_srgb,black_4%,transparent)] bias:opacity-0 bias:transition-[opacity,transform] bias:duration-150 bias:group-hover:opacity-100 bias:group-active:[transform:scaleX(0.988)_scaleY(0.86)]"
+            class="🔒 bias:absolute bias:inset-1 bias:-z-10 bias:rounded-[calc(var(--bias-border-radius)-2px)] bias:bg-[color-mix(in_srgb,var(--bias-color-foreground)_6%,transparent)] bias:opacity-0 bias:transition-[opacity,transform] bias:duration-150 bias:group-hover:opacity-100 bias:group-active:[transform:scaleX(0.988)_scaleY(0.86)]"
         ></div>
         <Radio name="payment-method" {selected} presentational />
-        <span class="🔒 bias:flex bias:w-6 bias:items-center bias:justify-center">
-            {#if icon}
+        <span class="🔒 bias:flex bias:w-7 bias:items-center bias:justify-center">
+            {#if leading}
+                {@render leading()}
+            {:else if icon}
                 <Icon src={icon} class="🔒 bias:size-5" theme="mini" />
             {/if}
         </span>
-        <div class="🔒 bias:flex bias:grow bias:items-center bias:justify-between">
+        <div class="🔒 bias:flex bias:grow bias:items-center bias:justify-between bias:gap-3">
             <span class="🔒 bias:text-[0.9375rem]">{label}</span>
+            {#if detail || secondaryDetail || saving}
+                <span class="🔒 bias:flex bias:flex-col bias:items-end bias:text-right bias:font-normal">
+                    {#if detail}<span class="🔒 bias:text-[0.8125rem] bias:text-foreground">{detail}</span>{/if}
+                    {#if secondaryDetail}
+                        <span class="🔒 bias:text-[0.75rem] bias:text-muted-foreground">{secondaryDetail}</span>
+                    {/if}
+                    {#if saving}<span class="🔒 bias:text-[0.75rem] bias:font-medium bias:text-success">{saving}</span>{/if}
+                </span>
+            {/if}
         </div>
     </button>
 

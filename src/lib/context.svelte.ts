@@ -1,9 +1,13 @@
 import { getContext, setContext } from "svelte";
 import { createSubscriber } from "svelte/reactivity";
-import type { AddressAutocompleteSuggestion, CheckoutSession } from "@biaspay/sdk";
+import type { ApplePayPaymentData, CheckoutSession } from "@biaspay/sdk";
+import type { AddressAutocompleteSuggestion } from "./core/api-types";
 import {
     BiasController as CoreBiasController,
     type AddressScope,
+    type ApplePayContact,
+    type ApplePayPresentation,
+    type ApplePayPresentationUpdate,
     type Appearance,
     type BiasElementsState,
     type BiasFieldName,
@@ -12,7 +16,10 @@ import {
     type FrameFieldType,
     type InternalCollector,
     type PaymentMethod,
+    type ShopperCheckoutSessionUpdateParams,
     type ValueFieldType,
+    PAYMENT_PROCESSING_MESSAGE,
+    setupMessage,
 } from "~/core";
 
 export type BiasProviderConfig = ElementsConfig;
@@ -60,7 +67,7 @@ export class BiasController {
 
     get submitDisabled(): boolean {
         const status = this.publicState.status;
-        return status === "submitting" || status === "succeeded";
+        return status === "submitting" || status === "processing" || status === "succeeded";
     }
 
     get isSubmittable(): boolean {
@@ -85,11 +92,22 @@ export class BiasController {
         const state = this.publicState;
         return {
             selectedPaymentMethod: state.paymentMethod,
+            selectedSavedPaymentMethod: state.savedPaymentMethod,
+            savedPaymentMethods: state.savedPaymentMethods,
             submitLoading: state.status === "submitting",
             submitSuccess: state.status === "succeeded",
-            paymentError: state.submissionError?.message ?? null,
+            submitDisabled:
+                state.status === "submitting" ||
+                state.status === "processing" ||
+                state.status === "succeeded",
+            paymentError:
+                state.status === "processing"
+                    ? this.checkoutSession?.mode === "setup"
+                        ? setupMessage(PAYMENT_PROCESSING_MESSAGE)!
+                        : PAYMENT_PROCESSING_MESSAGE
+                    : (state.submissionError?.message ?? null),
             collectsShipping: this.hasCollector("address", "shipping"),
-            collectsAddress: this.hasCollector("address", "billing"),
+            collectsAddress: this.hasCollector("address", "billing", "addressLine1"),
             billingSameAsShipping: this.getBillingSameAsShipping(),
         };
     }
@@ -101,16 +119,20 @@ export class BiasController {
             "country",
             "postalCode",
             "accountType",
+            "accountHolderType",
             "email",
+            "phone",
             "name",
+            "firstName",
+            "lastName",
             "addressLine1",
             "addressLine2",
             "city",
             "state",
-            "phone",
             "shippingCountry",
             "shippingPostalCode",
-            "shippingName",
+            "shippingFirstName",
+            "shippingLastName",
             "shippingAddressLine1",
             "shippingAddressLine2",
             "shippingCity",
@@ -152,11 +174,93 @@ export class BiasController {
     setPaymentMethod(method: PaymentMethod) {
         this.core.setPaymentMethod(method);
     }
+    setSavedPaymentMethod(id: string) {
+        this.core.setSavedPaymentMethod(id);
+    }
+    setWalletAvailability(status: "loading" | "available" | "unavailable") {
+        this.core.setWalletAvailability("apple_pay", status);
+    }
+    prepareApplePay(signal?: AbortSignal) {
+        return this.core.prepareApplePay(signal);
+    }
+    beginApplePayPresentation() {
+        return this.core.beginApplePayPresentation();
+    }
+    validateApplePayMerchant(
+        presentation: ApplePayPresentation,
+        validationUrl: string,
+        signal?: AbortSignal,
+    ) {
+        return this.core.validateApplePayMerchant(presentation, validationUrl, signal);
+    }
+    updateApplePayShippingContact(
+        presentation: ApplePayPresentation,
+        contact: ApplePayContact,
+        signal?: AbortSignal,
+    ): Promise<ApplePayPresentationUpdate> {
+        return this.core.updateApplePayShippingContact(presentation, contact, signal);
+    }
+    updateApplePayShippingMethod(
+        presentation: ApplePayPresentation,
+        shippingRate: string,
+        signal?: AbortSignal,
+    ): Promise<ApplePayPresentationUpdate> {
+        return this.core.updateApplePayShippingMethod(presentation, shippingRate, signal);
+    }
+    authorizeApplePay(
+        presentation: ApplePayPresentation,
+        paymentData: ApplePayPaymentData,
+        billingContact?: ApplePayContact,
+        shippingContact?: ApplePayContact,
+        signal?: AbortSignal,
+    ) {
+        return this.core.authorizeApplePay(
+            presentation,
+            paymentData,
+            billingContact,
+            shippingContact,
+            signal,
+        );
+    }
+    cancelApplePayPresentation() {
+        this.core.cancelWalletPresentation("apple_pay");
+    }
+    failApplePayPresentation(message?: string) {
+        this.core.failApplePayPresentation(message);
+    }
+    clearRememberedDetails() {
+        this.core.clearRememberedDetails();
+    }
+    updateCheckoutSession(params: ShopperCheckoutSessionUpdateParams) {
+        return this.core.updateCheckoutSession(params);
+    }
+    applyDiscountCode(
+        code: string,
+        synchronize?: (session: CheckoutSession) => void | Promise<void>,
+    ) {
+        return this.core.applyDiscountCode(code, synchronize);
+    }
+    removeDiscountCode(
+        discountId: string,
+        synchronize?: (session: CheckoutSession) => void | Promise<void>,
+    ) {
+        return this.core.removeDiscountCode(discountId, synchronize);
+    }
+    clearDiscountCodeError() {
+        this.core.clearDiscountCodeError();
+    }
     registerCollector(collector: InternalCollector) {
         return this.core.registerCollector(collector);
     }
     registerPaymentElement(method?: PaymentMethod) {
         return this.core.registerPaymentElement(method);
+    }
+    registerSubmitButton() {
+        return this.core.registerSubmitButton();
+    }
+    get hasSubmitButton(): boolean {
+        this.track();
+        return this.core.hasSubmitButton();
     }
     addressMetadata(scope: AddressScope) {
         this.track();
@@ -169,9 +273,9 @@ export class BiasController {
     setBillingSameAsShipping(value: boolean) {
         this.core.setBillingSameAsShipping(value);
     }
-    hasCollector(kind: "contact" | "address", scope?: AddressScope) {
+    hasCollector(kind: "contact" | "address", scope?: AddressScope, field?: ValueFieldType) {
         this.track();
-        return this.core.hasCollector(kind, scope);
+        return this.core.hasCollector(kind, scope, field);
     }
     autocompleteAddress(
         input: string,
@@ -180,17 +284,24 @@ export class BiasController {
     ): Promise<AddressAutocompleteSuggestion[]> {
         return this.core.autocompleteAddress(input, country, signal);
     }
+    addressVerification(scope: AddressScope) {
+        this.track();
+        return this.core.getAddressVerification(scope);
+    }
+    verifyAddress(scope: AddressScope) {
+        return this.core.verifyAddress(scope);
+    }
 
     getField(scope: AddressScope, name: ValueFieldType) {
         const addressNames: ValueFieldType[] = [
             "country",
             "postalCode",
-            "name",
+            "firstName",
+            "lastName",
             "addressLine1",
             "addressLine2",
             "city",
             "state",
-            "phone",
         ];
         const publicName =
             scope === "shipping" && addressNames.includes(name)
@@ -265,6 +376,11 @@ export function setAppearanceContext(getAppearance: () => Appearance | undefined
 }
 export function getAppearanceContext(): Appearance | undefined {
     return getContext<AppearanceSource | undefined>(APPEARANCE_KEY)?.current;
+}
+/** Like {@link getAppearanceContext}, but readable later, e.g. inside an effect. */
+export function getAppearanceAccessor(): () => Appearance | undefined {
+    const source = getContext<AppearanceSource | undefined>(APPEARANCE_KEY);
+    return () => source?.current;
 }
 
 export type {

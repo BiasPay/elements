@@ -27,7 +27,7 @@
     const boxClasses = (interactive: boolean) =>
         cn(
             "bias-radio 🔒",
-            "bias:relative bias:mb-0 bias:grid bias:size-4 bias:place-items-center bias:rounded-full bias:shadow-[0_1px_2px_0_rgb(0_0_0_/_0.05)] bias:transition-[all] bias:duration-[250ms] bias:ease-out bias:border bias:border-[#d4d4d4] bias:bg-white",
+            "bias:relative bias:mb-0 bias:grid bias:size-4 bias:place-items-center bias:rounded-full bias:shadow-[0_1px_2px_0_rgb(0_0_0_/_0.05)] bias:transition-[all] bias:duration-[250ms] bias:ease-out bias:border bias:border-border bias:bg-input",
             selected && "selected",
             disabled && "bias:opacity-60",
             interactive && !selected && !disabled && "bias:cursor-pointer",

@@ -1,7 +1,9 @@
 <script lang="ts">
     import type { FullAutoFill } from "svelte/elements";
+    import { getAddressScope } from "~/context.svelte";
     import HostTextField from "../Field/HostTextField.svelte";
     import type { AddressTextFieldType } from "./AddressInput.ts";
+    import { scopedAutocomplete } from "./autocomplete";
 
     const AUTOCOMPLETE: Record<AddressTextFieldType, FullAutoFill> = {
         addressLine1: "address-line1",
@@ -22,12 +24,15 @@
     };
 
     let { fieldType, id, placeholder }: Props = $props();
+
+    const scope = $derived(getAddressScope());
+    const autocomplete = $derived(scopedAutocomplete(scope, AUTOCOMPLETE[fieldType]));
 </script>
 
 <HostTextField
     {fieldType}
     class={CLASS_NAMES[fieldType]}
     {id}
-    autocomplete={AUTOCOMPLETE[fieldType]}
+    {autocomplete}
     {placeholder}
 />

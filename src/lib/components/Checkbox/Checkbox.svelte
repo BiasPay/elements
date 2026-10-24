@@ -4,11 +4,13 @@
     type Props = {
         checked?: boolean;
         disabled?: boolean;
+        /** Ignores toggles without the disabled styling. */
+        locked?: boolean;
         label?: string;
         onchange?: (detail: { checked: boolean }) => void;
     };
 
-    let { checked = false, disabled = false, label = "", onchange }: Props = $props();
+    let { checked = false, disabled = false, locked = false, label = "", onchange }: Props = $props();
 
     const instanceId = $props.id();
     const id = `bias-checkbox-${instanceId}`;
@@ -25,8 +27,8 @@
     <span
         class={cn(
             "🔒 box",
-            "bias:relative bias:grid bias:shrink-0 bias:size-4 bias:place-items-center bias:rounded bias:shadow-[0_1px_2px_0_rgb(0_0_0_/_0.05)] bias:transition-[all,outline-color] bias:duration-[250ms] bias:ease-out bias:border bias:border-[#d4d4d4] bias:bg-white bias:outline-2 bias:outline-transparent bias:has-[:focus-visible]:outline-(--bias-color-primary)/50",
-            checked && "boxChecked bias:border-(--bias-color-primary) bias:bg-(--bias-color-primary)",
+            "bias:relative bias:grid bias:shrink-0 bias:size-4 bias:place-items-center bias:rounded bias:shadow-[0_1px_2px_0_rgb(0_0_0_/_0.05)] bias:transition-[all,outline-color] bias:duration-[250ms] bias:ease-out bias:border bias:border-[#d4d4d4] bias:bg-white bias:outline-2 bias:outline-transparent bias:has-[:focus-visible]:outline-primary/50",
+            checked && "boxChecked bias:border-primary bias:bg-primary",
         )}
     >
         <svg
@@ -43,10 +45,11 @@
             {disabled}
             {checked}
             {id}
+            onclick={(e) => locked && e.preventDefault()}
             onchange={(e) => onchange?.({ checked: (e.currentTarget as HTMLInputElement).checked })}
         />
     </span>
-    {#if label}<span class="🔒 bias:text-[0.875em] bias:text-(--bias-color-muted-foreground)">{label}</span>{/if}
+    {#if label}<span class="🔒 bias:text-[0.875em] bias:text-muted-foreground">{label}</span>{/if}
 </label>
 
 <style>

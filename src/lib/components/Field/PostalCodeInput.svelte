@@ -2,6 +2,7 @@
     import { onDestroy } from "svelte";
     import { getAddressScope, getBiasContext } from "~/context.svelte";
     import { PatternMask } from "~/utils/pattern-mask";
+    import { scopedAutocomplete } from "../AddressElement/autocomplete";
     import FieldShell from "./FieldShell.svelte";
 
     // Typing-guide masks for common formats; validation covers every country
@@ -15,9 +16,11 @@
     type Props = {
         id?: string;
         placeholder?: string;
+        ariaDescribedby?: string;
+        invalid?: boolean;
     };
 
-    let { id, placeholder }: Props = $props();
+    let { id, placeholder, ariaDescribedby, invalid = false }: Props = $props();
 
     const ctx = getBiasContext();
     const scope = $derived(getAddressScope());
@@ -30,6 +33,7 @@
     const postalCode = $derived(ctx.getField(scope, "postalCode"));
     const country = $derived(ctx.getField(scope, "country"));
     const metadata = $derived(ctx.addressMetadata(scope));
+    const autocomplete = $derived(scopedAutocomplete(scope, "postal-code"));
     const resolvedPlaceholder = $derived(
         placeholder ?? metadata.postalCode.example ?? metadata.postalCode.label,
     );
@@ -69,6 +73,18 @@
         prevCountry = current;
     });
 
+    // Keep the DOM mask synchronized when autocomplete or a correction button
+    // changes the scoped postal value outside this input's own input event.
+    $effect(() => {
+        const value = postalCode.value;
+        if (!inputEl) return;
+        if (mask) {
+            if (mask.value !== value) mask.value = value;
+        } else if (inputEl.value !== value) {
+            inputEl.value = value;
+        }
+    });
+
     onDestroy(() => mask?.destroy());
 
     function handleInput(e: Event) {
@@ -85,6 +101,12 @@
     function handleBlur() {
         postalCode.setState({ focused: false });
         postalCode.validate();
+        void ctx.verifyAddress(scope);
+    }
+
+    function handleChange() {
+        postalCode.validate();
+        void ctx.verifyAddress(scope);
     }
 </script>
 
@@ -92,7 +114,7 @@
     class="bias-postalCode"
     {disabled}
     focused={postalCode.state.focused}
-    error={postalCode.state.error}
+    error={postalCode.state.error || invalid}
 >
     <input
         {id}
@@ -101,13 +123,15 @@
         class="bias-hostField"
         type="text"
         inputmode={metadata.postalCode.numeric ? "numeric" : "text"}
-        autocomplete="postal-code"
+        {autocomplete}
         value={postalCode.value}
         placeholder={resolvedPlaceholder}
         {disabled}
-        aria-invalid={postalCode.state.error ? "true" : undefined}
+        aria-invalid={postalCode.state.error || invalid ? "true" : undefined}
+        aria-describedby={ariaDescribedby}
         oninput={handleInput}
         onfocus={handleFocus}
         onblur={handleBlur}
+        onchange={handleChange}
     />
 </FieldShell>

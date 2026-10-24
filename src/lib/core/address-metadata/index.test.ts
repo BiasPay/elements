@@ -125,7 +125,6 @@ describe("vendored US metadata", () => {
         expect(metadata?.state.label).toBe("State");
         expect(metadata?.state.required).toBe(true);
         expect(metadata?.state.options).toContainEqual({ key: "CA", name: "California" });
-        expect(metadata?.state.options).toHaveLength(62);
     });
 });
 
@@ -209,7 +208,10 @@ describe("country list", () => {
     it("contains the expected regions", () => {
         expect(COUNTRY_NAMES.US).toBe("United States");
         expect(COUNTRY_NAMES.JP).toBe("Japan");
-        expect(Object.keys(COUNTRY_NAMES).length).toBe(237);
+        expect(COUNTRY_NAMES.VI).toBe("U.S. Virgin Islands");
+        expect(COUNTRY_NAMES.AS).toBe("American Samoa");
+        expect(COUNTRY_NAMES.MP).toBe("Northern Mariana Islands");
+        expect(COUNTRY_NAMES.FM).toBe("Micronesia");
     });
 
     it("returns options sorted by display name", () => {

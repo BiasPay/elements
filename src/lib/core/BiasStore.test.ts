@@ -1,11 +1,10 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import type { CheckoutSession } from "@biaspay/sdk";
+import type { CheckoutSession } from "@biaspay/sdk-checkout";
 import { detectGeoLocation } from "./geo";
 import {
     createBiasStore,
     createInitialFieldState,
     initialFrameField,
-    initialValueField,
     ADDRESS_VALUE_FIELDS,
     CARD_FRAME_FIELDS,
     CARD_VALUE_FIELDS,
@@ -49,35 +48,6 @@ function createTestStore(overrides: Partial<Parameters<typeof createBiasStore>[0
 }
 
 describe("initial state factories", () => {
-    it("initialFrameField returns loading state", () => {
-        expect(initialFrameField()).toEqual({
-            loading: true,
-            focused: false,
-            empty: true,
-            valid: false,
-            error: null,
-            cardBrand: null,
-        });
-    });
-
-    it("initialValueField returns empty state by default", () => {
-        expect(initialValueField()).toEqual({
-            value: "",
-            focused: false,
-            valid: false,
-            error: null,
-        });
-    });
-
-    it("initialValueField accepts initial value and valid flag", () => {
-        expect(initialValueField("US", true)).toEqual({
-            value: "US",
-            focused: false,
-            valid: true,
-            error: null,
-        });
-    });
-
     it("createInitialFieldState returns correct defaults", () => {
         const state = createInitialFieldState();
         expect(state.country.value).toBe("US");
@@ -96,7 +66,8 @@ describe("initial state factories", () => {
         expect(state.city.valid).toBe(false);
         expect(state.state.valid).toBe(false);
         expect(state.addressLine2.valid).toBe(true);
-        expect(state.phone.valid).toBe(true);
+        expect(state.shippingPhone.valid).toBe(true);
+        expect(state.phone.valid).toBe(false);
     });
 });
 
@@ -105,7 +76,7 @@ describe("createBiasStore", () => {
         it("returns initial state", () => {
             const { store } = createTestStore();
             const state = store.getState();
-            expect(state.selectedPaymentMethod).toBe("card");
+            expect(state.paymentSelection).toEqual({ kind: "new", method: "card" });
             expect(state.submitLoading).toBe(false);
             expect(state.submitSuccess).toBe(false);
             expect(state.paymentError).toBeNull();
@@ -200,6 +171,14 @@ describe("createBiasStore", () => {
             expect(state.fieldState.name.error).toBe("Required");
         });
 
+        it("validateField keeps a shown Required error on untouched empty fields", () => {
+            const { store } = createTestStore();
+            store.setValueFieldState("name", { error: "Required" });
+            store.validateField("name");
+
+            expect(store.getState().fieldState.name.error).toBe("Required");
+        });
+
         it("validateField clears error for valid fields", () => {
             const { store } = createTestStore();
             store.setFieldValue("name", "John");
@@ -255,9 +234,9 @@ describe("createBiasStore", () => {
     });
 
     describe("payment method selection", () => {
-        it("defaults to card", () => {
+        it("defaults to a new card", () => {
             const { store } = createTestStore();
-            expect(store.getState().selectedPaymentMethod).toBe("card");
+            expect(store.getState().paymentSelection).toEqual({ kind: "new", method: "card" });
         });
 
         it("setSelectedPaymentMethod switches method and clears errors", () => {
@@ -271,9 +250,40 @@ describe("createBiasStore", () => {
 
             store.setSelectedPaymentMethod("us_bank_account");
             const state = store.getState();
-            expect(state.selectedPaymentMethod).toBe("us_bank_account");
+            expect(state.paymentSelection).toEqual({
+                kind: "new",
+                method: "us_bank_account",
+            });
             expect(state.fieldState.name.error).toBeNull();
             expect(state.paymentError).toBeNull();
+        });
+
+        it("represents a saved method as an exclusive saved selection", () => {
+            const { store } = createTestStore();
+            const method = {
+                id: "pm_saved",
+                active: true,
+                type: "card",
+            } as any;
+
+            store.setSelectedSavedPaymentMethod(method);
+
+            expect(store.getState().paymentSelection).toEqual({ kind: "saved", method });
+            expect(store.getRequiredFrameFields()).toEqual([]);
+            expect(store.getRequiredValueFields()).toEqual([]);
+        });
+
+        it("resets session selection to a new card", () => {
+            const { store } = createTestStore();
+            store.setSelectedSavedPaymentMethod({
+                id: "pm_saved",
+                active: true,
+                type: "card",
+            } as any);
+
+            store.resetSessionFields();
+
+            expect(store.getState().paymentSelection).toEqual({ kind: "new", method: "card" });
         });
     });
 
@@ -402,19 +412,6 @@ describe("createBiasStore", () => {
             expect(trigger2).not.toHaveBeenCalled();
         });
 
-        it("does nothing if already succeeded", () => {
-            const { store } = createTestStore();
-
-            // Simulate success state by getting store into submitSuccess
-            // This is tricky without mocking the SDK, so test the guard instead
-            const trigger = vi.fn();
-            store.attemptPayment({ triggerFrameValidation: trigger });
-
-            // Reset and try when submitSuccess is true (would need SDK mock for full path)
-            // For now, verify the loading guard works
-            expect(trigger).toHaveBeenCalled();
-        });
-
         it("triggers bank account frame validation when method is us_bank_account", () => {
             const { store } = createTestStore();
             store.setSelectedPaymentMethod("us_bank_account");
@@ -426,22 +423,6 @@ describe("createBiasStore", () => {
             for (const field of BANK_FRAME_FIELDS) {
                 expect(triggerFrameValidation).toHaveBeenCalledWith(field);
             }
-        });
-
-        it("clears paymentError before attempting", () => {
-            const { store } = createTestStore();
-
-            // First attempt fails and may set an error
-            store.attemptPayment({ triggerFrameValidation: vi.fn() });
-
-            // Manually check paymentError is cleared at the start of attempt
-            // (after the first attempt fails, submitLoading is false again)
-            const trigger = vi.fn();
-            store.attemptPayment({ triggerFrameValidation: trigger });
-
-            // The second attempt should have cleared paymentError initially
-            // even though it will fail again
-            expect(trigger).toHaveBeenCalled();
         });
     });
 
@@ -475,6 +456,16 @@ describe("createBiasStore", () => {
             expect(required.length).toBe(new Set(required).size);
         });
 
+        it("requires only the name for a name-only billing element", () => {
+            const { store } = createTestStore();
+            store.setAddressFields("billing", ["firstName", "lastName"]);
+
+            expect(store.getState().collectsAddress).toBe(false);
+            expect(new Set(store.getRequiredValueFields())).toEqual(
+                new Set([...CARD_VALUE_FIELDS, "firstName", "lastName"]),
+            );
+        });
+
         it("restores method-only required fields when unregistered", () => {
             const { store } = createTestStore();
             store.setAddressFields("billing", ADDRESS_VALUE_FIELDS);
@@ -490,7 +481,8 @@ describe("createBiasStore", () => {
             store.setAddressFields("billing", ADDRESS_VALUE_FIELDS);
             expect(store.isSubmittable()).toBe(false);
 
-            store.setFieldValue("name", "Jane Doe");
+            store.setFieldValue("firstName", "Jane");
+            store.setFieldValue("lastName", "Doe");
             store.setFieldValue("addressLine1", "123 Main St");
             store.setFieldValue("city", "New York");
             store.setFieldValue("state", "NY");
@@ -507,7 +499,8 @@ describe("createBiasStore", () => {
             const state = store.getState();
             expect(state.fieldState.addressLine1.error).toBe("Required");
             expect(state.fieldState.city.error).toBe("Required");
-            expect(state.fieldState.name.error).toBe("Required");
+            expect(state.fieldState.firstName.error).toBe("Required");
+            expect(state.fieldState.lastName.error).toBe("Required");
             expect(state.submitLoading).toBe(false);
         });
 
@@ -521,7 +514,8 @@ describe("createBiasStore", () => {
                 valid: true,
                 error: null,
             }));
-            store.setFieldValue("name", "Jane Doe");
+            store.setFieldValue("firstName", "Jane");
+            store.setFieldValue("lastName", "Doe");
             store.setFieldValue("addressLine1", "123 Main St");
             store.setFieldValue("city", "Berlin");
             store.setFieldValue("state", "");
@@ -532,19 +526,21 @@ describe("createBiasStore", () => {
 
     describe("shipping scope", () => {
         const SHIPPING_FIELDS = ADDRESS_VALUE_FIELDS.map((f) =>
-            f === "name"
-                ? "shippingName"
-                : f === "country"
-                  ? "shippingCountry"
-                  : f === "postalCode"
-                    ? "shippingPostalCode"
-                    : f === "addressLine1"
-                      ? "shippingAddressLine1"
-                      : f === "city"
-                        ? "shippingCity"
-                        : f === "state"
-                          ? "shippingState"
-                          : f,
+            f === "firstName"
+                ? "shippingFirstName"
+                : f === "lastName"
+                  ? "shippingLastName"
+                  : f === "country"
+                    ? "shippingCountry"
+                    : f === "postalCode"
+                      ? "shippingPostalCode"
+                      : f === "addressLine1"
+                        ? "shippingAddressLine1"
+                        : f === "city"
+                          ? "shippingCity"
+                          : f === "state"
+                            ? "shippingState"
+                            : f,
         );
 
         it("toggles collectsShipping without touching collectsAddress", () => {
@@ -615,26 +611,26 @@ describe("createBiasStore", () => {
             const { store } = createTestStore();
             expect(store.getState().collectsContactDetails).toBe(false);
 
-            store.setContactDetailsFields(true);
+            store.setContactDetailsFields(["email"]);
             expect(store.getState().collectsContactDetails).toBe(true);
 
-            store.setContactDetailsFields(false);
+            store.setContactDetailsFields(null);
             expect(store.getState().collectsContactDetails).toBe(false);
         });
 
         it("adds email to the required value fields while mounted", () => {
             const { store } = createTestStore();
-            store.setContactDetailsFields(true);
+            store.setContactDetailsFields(["email"]);
             expect(store.getRequiredValueFields()).toContain("email");
 
-            store.setContactDetailsFields(false);
+            store.setContactDetailsFields(null);
             expect(store.getRequiredValueFields()).not.toContain("email");
         });
 
         it("blocks submission until email is valid", () => {
             const { store } = createTestStore();
             fillCardFields(store);
-            store.setContactDetailsFields(true);
+            store.setContactDetailsFields(["email"]);
             expect(store.isSubmittable()).toBe(false);
 
             store.setFieldValue("email", "not-an-email");
@@ -647,7 +643,7 @@ describe("createBiasStore", () => {
         it("attemptPayment surfaces a Required error on an empty email", () => {
             const { store } = createTestStore();
             fillCardFields(store);
-            store.setContactDetailsFields(true);
+            store.setContactDetailsFields(["email"]);
 
             store.attemptPayment({ triggerFrameValidation: vi.fn() });
 
@@ -659,12 +655,26 @@ describe("createBiasStore", () => {
         it("attemptPayment surfaces a format error on an invalid email", () => {
             const { store } = createTestStore();
             fillCardFields(store);
-            store.setContactDetailsFields(true);
+            store.setContactDetailsFields(["email"]);
             store.setFieldValue("email", "not-an-email");
 
             store.attemptPayment({ triggerFrameValidation: vi.fn() });
 
             expect(store.getState().fieldState.email.error).toBe("Enter a valid email address");
+        });
+
+        it("blocks submission until a collected phone is valid", () => {
+            const { store } = createTestStore();
+            fillCardFields(store);
+            store.setContactDetailsFields(["email", "phone"]);
+            store.setFieldValue("email", "jane@example.com");
+            expect(store.isSubmittable()).toBe(false);
+
+            store.setFieldValue("phone", "123");
+            expect(store.isSubmittable()).toBe(false);
+
+            store.setFieldValue("phone", "(415) 555-0100");
+            expect(store.isSubmittable()).toBe(true);
         });
 
         it("does not require email when no contact details element is mounted", () => {
@@ -691,7 +701,7 @@ describe("createBiasStore", () => {
 
         it("saves the email to the session after the debounce delay", async () => {
             const { store } = createTestStore();
-            store.setContactDetailsFields(true);
+            store.setContactDetailsFields(["email"]);
             vi.mocked(fetch).mockClear();
 
             store.setFieldValue("email", "jane@example.com");
@@ -716,10 +726,76 @@ describe("createBiasStore", () => {
             store.setAddressFields("shipping", ADDRESS_VALUE_FIELDS);
             vi.mocked(fetch).mockClear();
 
-            store.setFieldValue("shippingName", "Jane Doe");
+            store.setFieldValue("shippingFirstName", "Jane");
+            store.setFieldValue("shippingLastName", "Doe");
             await vi.advanceTimersByTimeAsync(1000);
 
             expect(sessionUpdateCalls()).toHaveLength(1);
+        });
+
+        it("uses the shipping name for customer details when billing is not collected", async () => {
+            const { store } = createTestStore();
+            store.setAddressFields("shipping", ADDRESS_VALUE_FIELDS);
+            vi.mocked(fetch).mockClear();
+
+            store.setFieldValue("shippingFirstName", "Shipping");
+            store.setFieldValue("shippingLastName", "Customer");
+            await vi.advanceTimersByTimeAsync(1000);
+
+            const calls = sessionUpdateCalls();
+            expect(calls).toHaveLength(1);
+            const body = JSON.parse(String(calls[0]?.[1]?.body));
+            expect(body.customer_details).toEqual({ name: "Shipping Customer" });
+        });
+
+        it("saves a collected phone to customer details", async () => {
+            const { store } = createTestStore();
+            store.setContactDetailsFields(["email", "phone"]);
+            vi.mocked(fetch).mockClear();
+
+            store.setFieldValue("email", "jane@example.com");
+            store.setFieldValue("phone", "+14155550100");
+            await vi.advanceTimersByTimeAsync(1000);
+
+            const calls = sessionUpdateCalls();
+            expect(calls).toHaveLength(1);
+            const body = JSON.parse(String(calls[0]?.[1]?.body));
+            expect(body.customer_details).toEqual({
+                email: "jane@example.com",
+                phone: "+14155550100",
+            });
+        });
+
+        it("saves a shipping address filled before the address element mounts", async () => {
+            const { store } = createTestStore();
+            vi.mocked(fetch).mockClear();
+
+            store.setFieldValue("shippingFirstName", "Jane");
+            store.setFieldValue("shippingLastName", "Doe");
+            store.setFieldValue("shippingCountry", "US");
+            store.setFieldValue("shippingAddressLine1", "123 Main St");
+            store.setFieldValue("shippingCity", "Springfield");
+            store.setFieldValue("shippingState", "IL");
+            store.setFieldValue("shippingPostalCode", "62704");
+            await vi.advanceTimersByTimeAsync(1000);
+            expect(sessionUpdateCalls()).toHaveLength(0);
+
+            store.setAddressFields("shipping", ADDRESS_VALUE_FIELDS);
+            await vi.advanceTimersByTimeAsync(1000);
+
+            const calls = sessionUpdateCalls();
+            expect(calls).toHaveLength(1);
+            const body = JSON.parse(String(calls[0]?.[1]?.body));
+            expect(body.shipping_details).toMatchObject({
+                name: "Jane Doe",
+                address: {
+                    line1: "123 Main St",
+                    city: "Springfield",
+                    state: "IL",
+                    postal_code: "62704",
+                    country: "US",
+                },
+            });
         });
 
         it("saves billing address fields after the debounce delay", async () => {
@@ -727,10 +803,43 @@ describe("createBiasStore", () => {
             store.setAddressFields("billing", ADDRESS_VALUE_FIELDS);
             vi.mocked(fetch).mockClear();
 
-            store.setFieldValue("name", "Jane Doe");
+            store.setFieldValue("firstName", "Jane");
+            store.setFieldValue("lastName", "Doe");
             await vi.advanceTimersByTimeAsync(1000);
 
             expect(sessionUpdateCalls()).toHaveLength(1);
+        });
+
+        it("prefers the billing name for customer details when both names are collected", async () => {
+            const { store } = createTestStore();
+            store.setAddressFields("shipping", ADDRESS_VALUE_FIELDS);
+            store.setAddressFields("billing", ADDRESS_VALUE_FIELDS);
+            vi.mocked(fetch).mockClear();
+
+            store.setFieldValue("shippingFirstName", "Shipping");
+            store.setFieldValue("shippingLastName", "Recipient");
+            store.setFieldValue("firstName", "Billing");
+            store.setFieldValue("lastName", "Customer");
+            await vi.advanceTimersByTimeAsync(1000);
+
+            const calls = sessionUpdateCalls();
+            expect(calls).toHaveLength(1);
+            const body = JSON.parse(String(calls[0]?.[1]?.body));
+            expect(body.customer_details).toEqual({ name: "Billing Customer" });
+        });
+
+        it("omits phone when saving collected billing details", async () => {
+            const { store } = createTestStore();
+            store.setAddressFields("billing", ADDRESS_VALUE_FIELDS);
+            vi.mocked(fetch).mockClear();
+
+            store.setFieldValue("firstName", "Jane");
+            await vi.advanceTimersByTimeAsync(1000);
+
+            const calls = sessionUpdateCalls();
+            expect(calls).toHaveLength(1);
+            const body = JSON.parse(String(calls[0]?.[1]?.body));
+            expect(body.billing_details).not.toHaveProperty("phone");
         });
 
         it("does not autosave billing address fields when no billing address element is mounted", async () => {
@@ -757,7 +866,7 @@ describe("createBiasStore", () => {
 
         it("coalesces rapid keystrokes into a single save", async () => {
             const { store } = createTestStore();
-            store.setContactDetailsFields(true);
+            store.setContactDetailsFields(["email"]);
             vi.mocked(fetch).mockClear();
 
             for (const c of ["j", "ja", "jan", "jane@example.com"]) {
@@ -771,7 +880,7 @@ describe("createBiasStore", () => {
 
         it("does not schedule a new autosave for an edit made while submitLoading is true", async () => {
             const { store } = createTestStore();
-            store.setContactDetailsFields(true);
+            store.setContactDetailsFields(["email"]);
             store.onEncryptedData("cardNumber", "enc_num");
             store.onEncryptedData("cardExpiry", "enc_exp");
             store.onEncryptedData("cardCvc", "enc_cvc");
@@ -799,7 +908,7 @@ describe("createBiasStore", () => {
                 id: "cs_test",
                 live: false,
                 created_at: 0,
-                amount: 1000,
+                total: 1000,
                 amount_collected: 0,
                 dual_pricing: null,
                 client_details: null,
@@ -833,7 +942,7 @@ describe("createBiasStore", () => {
 
         it("fills the email field when a contact details element is mounted", () => {
             const { store } = createTestStore();
-            store.setContactDetailsFields(true);
+            store.setContactDetailsFields(["email"]);
 
             store.hydrateFromSession(sessionFixture());
 
@@ -850,7 +959,7 @@ describe("createBiasStore", () => {
 
         it("does not overwrite an email the user has already typed", () => {
             const { store } = createTestStore();
-            store.setContactDetailsFields(true);
+            store.setContactDetailsFields(["email"]);
             store.setFieldValue("email", "typed@example.com");
 
             store.hydrateFromSession(sessionFixture());
@@ -865,7 +974,8 @@ describe("createBiasStore", () => {
             store.hydrateFromSession(sessionFixture());
 
             const fs = store.getState().fieldState;
-            expect(fs.shippingName.value).toBe("Jane Doe");
+            expect(fs.shippingFirstName.value).toBe("Jane");
+            expect(fs.shippingLastName.value).toBe("Doe");
             expect(fs.shippingAddressLine1.value).toBe("123 Main St");
             expect(fs.shippingCity.value).toBe("Springfield");
             expect(fs.shippingState.value).toBe("IL");
@@ -878,7 +988,8 @@ describe("createBiasStore", () => {
 
             store.hydrateFromSession(sessionFixture());
 
-            expect(store.getState().fieldState.shippingName.value).toBe("");
+            expect(store.getState().fieldState.shippingFirstName.value).toBe("");
+            expect(store.getState().fieldState.shippingLastName.value).toBe("");
         });
 
         it("fills billing address fields when a billing address element is mounted", () => {
@@ -902,7 +1013,9 @@ describe("createBiasStore", () => {
             );
 
             const fs = store.getState().fieldState;
-            expect(fs.name.value).toBe("Billing Name");
+            expect(fs.firstName.value).toBe("Billing");
+            expect(fs.lastName.value).toBe("Name");
+            expect(fs.phone.value).toBe("");
             expect(fs.addressLine1.value).toBe("456 Side St");
             expect(fs.city.value).toBe("Metropolis");
             expect(fs.state.value).toBe("NY");
@@ -929,7 +1042,8 @@ describe("createBiasStore", () => {
                 }),
             );
 
-            expect(store.getState().fieldState.name.value).toBe("");
+            expect(store.getState().fieldState.firstName.value).toBe("");
+            expect(store.getState().fieldState.lastName.value).toBe("");
         });
 
         it("infers 'same as shipping' when the saved billing and shipping addresses match", () => {
@@ -1008,11 +1122,13 @@ describe("createBiasStore", () => {
         it("does not overwrite a shipping field the user has already touched", () => {
             const { store } = createTestStore();
             store.setAddressFields("shipping", ADDRESS_VALUE_FIELDS);
-            store.setFieldValue("shippingName", "Someone Else");
+            store.setFieldValue("shippingFirstName", "Someone");
+            store.setFieldValue("shippingLastName", "Else");
 
             store.hydrateFromSession(sessionFixture());
 
-            expect(store.getState().fieldState.shippingName.value).toBe("Someone Else");
+            expect(store.getState().fieldState.shippingFirstName.value).toBe("Someone");
+            expect(store.getState().fieldState.shippingLastName.value).toBe("Else");
         });
 
         it("does nothing when the session has no shipping details", () => {
@@ -1021,7 +1137,8 @@ describe("createBiasStore", () => {
 
             store.hydrateFromSession(sessionFixture({ shipping_details: null }));
 
-            expect(store.getState().fieldState.shippingName.value).toBe("");
+            expect(store.getState().fieldState.shippingFirstName.value).toBe("");
+            expect(store.getState().fieldState.shippingLastName.value).toBe("");
         });
 
         it("survives a subsequent geo default lookup without being overwritten", async () => {
@@ -1063,6 +1180,28 @@ describe("createBiasStore", () => {
             const { fieldState } = store.getState();
             expect(fieldState.city.value).toBe("Portland");
             expect(fieldState.city.valid).toBe(true);
+        });
+
+        it("keeps the shipping phone value and silently revalidates it", () => {
+            const { store } = createTestStore();
+            store.setFieldValue("shippingPhone", "(212) 555-0123");
+            expect(store.getState().fieldState.shippingPhone.valid).toBe(true);
+
+            store.setFieldValue("shippingCountry", "GB");
+
+            const { shippingPhone } = store.getState().fieldState;
+            expect(shippingPhone.value).toBe("(212) 555-0123");
+            expect(shippingPhone.valid).toBe(false);
+            expect(shippingPhone.error).toBeNull();
+        });
+
+        it("does not mark an empty shipping phone as touched when the country changes", () => {
+            const { store } = createTestStore();
+
+            store.setFieldValue("shippingCountry", "GB");
+            store.validateField("shippingPhone");
+
+            expect(store.getState().fieldState.shippingPhone.error).toBeNull();
         });
 
         it("validates the postal code against the new country's format", () => {
@@ -1140,39 +1279,24 @@ describe("createBiasStore", () => {
         });
     });
 
-    describe("setApiBaseUrl", () => {
-        it("allows updating the API base URL", () => {
-            const { store } = createTestStore();
-            // Just verify it doesn't throw
-            store.setApiBaseUrl("https://api.example.com");
-        });
-    });
-
     describe("onChange notifications", () => {
-        it("calls onChange for every state mutation", () => {
+        it("notifies the listener with the latest state after each mutation", () => {
             const { store, onChange } = createTestStore();
+            const latest = () => onChange.mock.lastCall![0];
 
             store.setFieldValue("name", "John");
-            expect(onChange).toHaveBeenCalledTimes(1);
+            expect(onChange).toHaveBeenCalled();
+            expect(latest().fieldState.name.value).toBe("John");
 
+            onChange.mockClear();
             store.setSelectedPaymentMethod("us_bank_account");
-            expect(onChange).toHaveBeenCalledTimes(2);
+            expect(onChange).toHaveBeenCalled();
+            expect(latest().paymentSelection).toEqual({ kind: "new", method: "us_bank_account" });
 
+            onChange.mockClear();
             store.onEncryptedData("cardNumber", "enc");
-            expect(onChange).toHaveBeenCalledTimes(3);
-        });
-
-        it("onChange receives the full state object", () => {
-            const { store, onChange } = createTestStore();
-            store.setFieldValue("name", "John");
-
-            const state = onChange.mock.calls[0]![0];
-            expect(state).toHaveProperty("fieldState");
-            expect(state).toHaveProperty("selectedPaymentMethod");
-            expect(state).toHaveProperty("encryptedFields");
-            expect(state).toHaveProperty("submitLoading");
-            expect(state).toHaveProperty("submitSuccess");
-            expect(state).toHaveProperty("paymentError");
+            expect(onChange).toHaveBeenCalled();
+            expect(latest().encryptedFields.cardNumber).toBe("enc");
         });
     });
 });

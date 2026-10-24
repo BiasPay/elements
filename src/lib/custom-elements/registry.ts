@@ -1,4 +1,5 @@
-import type { Appearance, ElementsController } from "~/core";
+import type { ElementsController } from "~/core/adapter";
+import type { Appearance } from "~/core/public-types";
 
 export const BIAS_PROVIDER_TAG = "bias-provider";
 

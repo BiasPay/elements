@@ -2,16 +2,23 @@
     import type { Appearance } from "~/core";
     import { getBiasContext } from "~/context.svelte";
     import { cn } from "~/utils/classes";
-    import { methodConfig, type PaymentMethod } from "./paymentMethods.ts";
+    import { methodConfig, savingLabel, type PaymentMethod } from "./paymentMethods.ts";
     import PaymentMethodTab from "./PaymentMethodTab.svelte";
     import PaymentMethodForm from "./PaymentMethodForm.svelte";
 
     type Props = {
         paymentMethods: PaymentMethod[];
+        collectBillingName?: boolean;
+        collectBillingAddress?: boolean;
         appearance?: Appearance;
     };
 
-    let { paymentMethods, appearance }: Props = $props();
+    let {
+        paymentMethods,
+        collectBillingName = false,
+        collectBillingAddress = false,
+        appearance,
+    }: Props = $props();
 
     const ctx = getBiasContext();
     const instanceId = $props.id();
@@ -57,7 +64,7 @@
                 label={config.label}
                 icon={config.icon}
                 selected={selectedMethod === method}
-                discountPercentage={method !== "card" ? session?.dual_pricing?.rate : undefined}
+                saving={savingLabel(session, method)}
                 onselect={() => ctx.setPaymentMethod(method)}
             />
         {/each}
@@ -76,7 +83,12 @@
                 )}
                 inert={!selected}
             >
-                <PaymentMethodForm {method} {appearance} />
+                <PaymentMethodForm
+                    {method}
+                    {collectBillingName}
+                    {collectBillingAddress}
+                    {appearance}
+                />
             </div>
         {/each}
     </div>

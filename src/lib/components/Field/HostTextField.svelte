@@ -12,9 +12,10 @@
         type?: HTMLInputAttributes["type"];
         inputmode?: HTMLInputAttributes["inputmode"];
         autocomplete?: FullAutoFill;
+        readOnly?: boolean;
     };
 
-    let { fieldType, class: className, id, placeholder, type = "text", inputmode, autocomplete }: Props =
+    let { fieldType, class: className, id, placeholder, type = "text", inputmode, autocomplete, readOnly = false }: Props =
         $props();
 
     const ctx = getBiasContext();
@@ -32,6 +33,7 @@
         {type}
         {inputmode}
         {autocomplete}
+        readonly={readOnly}
         value={field.value}
         placeholder={placeholder ?? undefined}
         {disabled}

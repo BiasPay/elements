@@ -4,9 +4,16 @@
     type Props = {
         id?: string;
         placeholder?: string;
+        floatingLabelShrunk?: boolean;
     };
 
-    let { id, placeholder }: Props = $props();
+    let { id, placeholder, floatingLabelShrunk = false }: Props = $props();
 </script>
 
-<FrameField fieldType="cardCvc" class="bias-cardCvc" {id} placeholder={placeholder ?? "CVC"} />
+<FrameField
+    fieldType="cardCvc"
+    class="bias-cardCvc"
+    {id}
+    {floatingLabelShrunk}
+    placeholder={placeholder ?? "CVC"}
+/>

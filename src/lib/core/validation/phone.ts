@@ -1,15 +1,15 @@
 import parsePhoneNumber, { type CountryCode } from "libphonenumber-js";
 import type { ValueFieldValidationOptions, ValueFieldValidationResult } from "../types";
 
-/** Phone is optional in the address element: empty is valid, non-empty must parse. */
+/** A collected phone is required; non-empty values must parse for the address country. */
 export function validatePhone(
     value: string,
     country: string,
-    _options: ValueFieldValidationOptions,
+    options: ValueFieldValidationOptions,
 ): ValueFieldValidationResult {
     const normalized = value.trim();
     if (!normalized) {
-        return { valid: true, error: null };
+        return { valid: false, error: options.showRequired ? "Required" : null };
     }
 
     const parsed = parsePhoneNumber(normalized, country as CountryCode);

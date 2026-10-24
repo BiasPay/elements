@@ -1,5 +1,4 @@
 import bezier from "bezier-easing";
-import { cubicOut } from "svelte/easing";
 import type { TransitionConfig } from "svelte/transition";
 
 /**
@@ -20,6 +19,8 @@ export type CollapseParams = {
     scale?: number;
     /** `translate` value at the collapsed end, e.g. "0 -2px". */
     translate?: string;
+    /** Blur radius in pixels at the collapsed end. */
+    blur?: number;
 };
 
 /** Scales every numeric part of a `translate` value by `factor` (px-safe). */
@@ -43,12 +44,13 @@ function scaleTranslate(value: string, factor: number): string {
 export function collapse(node: Element, params: CollapseParams = {}): TransitionConfig {
     const {
         delay = 0,
-        duration = 300,
-        easing = cubicOut,
+        duration = 400,
+        easing = easeInOutSmooth,
         axis = "y",
         opacity = 0,
         scale = 1,
         translate,
+        blur = 0,
     } = params;
 
     const style = getComputedStyle(node);
@@ -83,6 +85,7 @@ export function collapse(node: Element, params: CollapseParams = {}): Transition
             }
             if (scale !== 1) css += `scale: ${scale + (1 - scale) * t};`;
             if (translate) css += `translate: ${scaleTranslate(translate, u)};`;
+            if (blur) css += `filter: blur(${blur * u}px);`;
             return css;
         },
     };

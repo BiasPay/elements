@@ -4,6 +4,10 @@ export type FieldControllerOptions = {
     type: FrameFieldType;
     clientSecret: string;
     frameUrl: string;
+    /** Tells the frame not to load the session's public key. */
+    preview?: boolean;
+    /** Per-checkout group the frame uses to coordinate with its sibling fields. */
+    group?: string;
     onStateChange(nextState: Partial<BiasFieldStatus>): void;
     onEncryptedData?(field: FrameFieldType, encryptedValue: string | null): void;
 };
@@ -13,6 +17,7 @@ export type FieldController = {
     setIframe(element: HTMLIFrameElement | undefined): void;
     send(message: unknown): void;
     setStyle(css: string): void;
+    setPlaceholder(placeholder: string): void;
     handleIframeLoad(): void;
     destroy(): void;
 };
@@ -126,6 +131,7 @@ export function createFieldController(options: FieldControllerOptions): FieldCon
                     type: "bias:authenticate-field",
                     channelId: ownedChannelId,
                     clientSecret: options.clientSecret,
+                    ...(options.preview ? { preview: true } : {}),
                 });
                 return;
             }
@@ -140,6 +146,7 @@ export function createFieldController(options: FieldControllerOptions): FieldCon
                 type: "bias:initialize-field",
                 field: options.type,
                 channelId: ownedChannelId,
+                ...(options.group ? { group: options.group } : {}),
             },
             origin,
             [channel.port2],
@@ -175,6 +182,9 @@ export function createFieldController(options: FieldControllerOptions): FieldCon
         send,
         setStyle(css) {
             send({ type: "style", style: css });
+        },
+        setPlaceholder(placeholder) {
+            send({ type: "placeholder", placeholder });
         },
         handleIframeLoad() {
             if (destroyed) return;
