@@ -38,7 +38,7 @@
 
     "@asamuzakjp/dom-selector": ["@asamuzakjp/dom-selector@10.0.5", "", { "dependencies": { "bidi-js": "^1.1.0", "css-tree": "^3.2.1", "is-potential-custom-element-name": "^1.0.1", "lru-cache": "^11.5.3" } }, "sha512-EgmJ7oEaGQECTn3H3wmnQpEy4hKY66VvM7VQndwPIQob3p877BgbyOUE3EX0LgXQCciF2H8KMdR+RznqjMNOLw=="],
 
-    "@biaspay/sdk": ["@biaspay/sdk@2.0.0", "https://registry.npmjs.org/@biaspay/sdk/-/sdk-2.0.0.tgz", {}, "sha512-2qcAbA1S6WgmoWGxWgIkDivv2Ptr9qsfyJlSgf14etvTE3BoQoZd7Y6DIDtVfrsIkvNwBYfBXv+iif7KpWZO7g=="],
+    "@biaspay/sdk": ["@biaspay/sdk@2.0.0", "", {}, "sha512-dVKo7arODEHt89QETRuggqbyaQCSC1RX0JxFBDKh5hfMZTmsNz0bFM29JEPl3E4xSDg88SB9doWPx2C/9oJu5A=="],
 
     "@biaspay/sdk-checkout": ["@biaspay/sdk-checkout@file:vendor/sdk-checkout", {}],
 
